@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colony Flow — Editor de Niveles Miyuki</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f18;--surface:#161927;--surface2:#1d2035;--border:#252840;
+  --accent:#4b96f5;--accent2:#8b5cf6;--text:#dde1f0;--dim:#7b80a0;
+  --ok:#22c55e;--err:#ef4444;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* ── Header ─────────────────────────────────────── */
+header{flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:10px}
+header h1{font-size:16px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;-webkit-text-fill-color:#fff}
+
+/* ── Layout ─────────────────────────────────────── */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* ── Sidebar ─────────────────────────────────────── */
+.sidebar{width:256px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.sec{padding:12px 14px;border-bottom:1px solid var(--border)}
+.sec-t{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:10px}
+
+/* Upload zone */
+.upzone{border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.upzone:hover,.upzone.over{border-color:var(--accent);background:rgba(75,150,245,.05)}
+.upzone .ico{font-size:26px;margin-bottom:6px}
+.upzone p{font-size:11px;color:var(--dim);line-height:1.5}
+.upzone b{color:var(--accent)}
+#thumb{display:none;width:100%;max-height:110px;object-fit:contain;border-radius:8px;margin-top:8px;background:var(--surface2)}
+
+/* Controls */
+.ctrl{margin-bottom:9px}
+.ctrl:last-child{margin-bottom:0}
+.clbl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:4px}
+.clbl b{color:var(--text);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+input[type=number],input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:5px 9px;outline:none;transition:border-color .15s}
+input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
+.row2{display:flex;gap:8px}.row2>div{flex:1}
+.tog{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-size:11px;color:var(--dim)}
+.tog input{accent-color:var(--accent)}
+
+/* Buttons */
+.btn{display:block;width:100%;padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;text-align:center}
+.btn:hover{opacity:.88}.btn:active{transform:scale(.97)}
+.btn-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-g{background:var(--ok);color:#fff}
+.btn-o{background:var(--surface2);color:var(--dim);border:1px solid var(--border)}
+.btn-o:hover{color:var(--text)}
+.brow{display:flex;gap:7px}.brow .btn{flex:1}
+
+/* Tools */
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 3px;border-radius:7px;border:2px solid var(--border);background:transparent;cursor:pointer;font-size:16px;color:var(--dim);transition:all .15s}
+.tool span{font-size:9px;font-weight:700;letter-spacing:.03em}
+.tool:hover{background:var(--surface2);color:var(--text)}
+.tool.on{border-color:var(--accent);color:var(--accent);background:rgba(75,150,245,.09)}
+
+/* Palette */
+.palscroll{max-height:270px;overflow-y:auto}
+.pi{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:background .1s}
+.pi:hover{background:var(--surface2)}
+.pi.sel{border-color:var(--accent)}
+.psw{width:24px;height:24px;border-radius:5px;border:2px solid rgba(255,255,255,.13);position:relative;flex-shrink:0;overflow:hidden}
+.psw input[type=color]{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);opacity:0;cursor:pointer}
+.pmeta{flex:1;min-width:0}
+.pcnt{font-size:12px;font-weight:700}
+.phex{font-size:10px;font-family:monospace;color:var(--dim)}
+.pid{font-size:10px;color:var(--dim);background:var(--surface2);border-radius:3px;padding:1px 4px}
+.pdel{background:none;border:none;color:var(--dim);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px}
+.pdel:hover{color:var(--err);background:rgba(239,68,68,.1)}
+
+/* ── Main ─────────────────────────────────────────── */
+.main{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:18px;gap:18px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--dim)}
+.empty .eico{font-size:48px}
+.empty p{font-size:13px;text-align:center;line-height:1.6}
+
+/* Grid wrapper */
+.gw{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.gtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.gtop h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+.zbts{display:flex;gap:4px}
+.zbt{width:27px;height:23px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.zbt:hover{background:var(--border)}
+#gc{display:block;border-radius:6px;cursor:crosshair;image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* Code panel */
+.cpanel{width:100%;max-width:840px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cphead{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)}
+.cphead h3{font-size:11px;font-weight:700;color:var(--dim)}
+.cody{padding:14px;font-family:'Cascadia Code','Fira Code','Courier New',monospace;font-size:11.5px;color:#a6c3f0;max-height:360px;overflow:auto;white-space:pre;background:#090b13;line-height:1.55}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--ok);color:#fff;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:700;box-shadow:0 4px 20px rgba(34,197,94,.3);transform:translateY(60px);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:9999}
+.toast.show{transform:translateY(0);opacity:1}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#363b60}
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:20px">🐜</span>
+  <h1>Colony Flow — Editor de Niveles</h1>
+  <span class="badge">MIYUKI GENERATOR</span>
+</header>
+
+<div class="layout">
+
+<!-- ── SIDEBAR ───────────────────────────────────────── -->
+<aside class="sidebar">
+
+  <!-- Upload -->
+  <div class="sec">
+    <div class="sec-t">📁 Imagen fuente</div>
+    <div class="upzone" id="upzone">
+      <div class="ico">🖼️</div>
+      <p><b>Click</b> o arrastra aquí<br>JPG · PNG · WEBP · GIF</p>
+    </div>
+    <input type="file" id="fileIn" accept="image/*" style="display:none">
+    <img id="thumb" alt="preview">
+  </div>
+
+  <!-- Level info -->
+  <div class="sec">
+    <div class="sec-t">⚙️ Datos del nivel</div>
+    <div class="ctrl">
+      <div class="clbl">Nombre del nivel</div>
+      <input type="text" id="lvlName" value="Nivel 1" placeholder="Nombre…">
+    </div>
+    <div class="ctrl">
+      <div class="clbl">Tamaño de celda en juego (px)</div>
+      <input type="number" id="cellSz" value="12" min="4" max="24">
+    </div>
+    <div class="ctrl row2">
+      <div>
+        <div class="clbl">BoxCols</div>
+        <input type="number" id="boxCols" value="4" min="2" max="6">
+      </div>
+      <div>
+        <div class="clbl">holeGap</div>
+        <input type="number" id="holeGap" value="70" min="20" max="120">
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid settings -->
+  <div class="sec">
+    <div class="sec-t">🔲 Cuadrícula</div>
+    <div class="ctrl">
+      <div class="clbl">Columnas <b id="colV">30</b></div>
+      <input type="range" id="rCols" min="10" max="60" value="30">
+    </div>
+    <div class="ctrl">
+      <div class="clbl">Filas <b id="rowV">30</b></div>
+      <input type="range" id="rRows" min="10" max="60" value="30">
+    </div>
+    <div class="ctrl">
+      <div class="clbl">Colores K-means <b id="kV">8</b></div>
+      <input type="range" id="rK" min="2" max="22" value="8">
+    </div>
+    <div class="ctrl">
+      <label class="tog">
+        <input type="checkbox" id="chkBg">
+        <span>Detectar fondo automático</span>
+      </label>
+    </div>
+    <button class="btn btn-p" onclick="processImage()">⚡ Procesar imagen</button>
+  </div>
+
+  <!-- Tools -->
+  <div class="sec">
+    <div class="sec-t">🖊️ Herramientas</div>
+    <div class="tools">
+      <button class="tool on" id="tPaint" onclick="setTool('paint')">🖊️<span>Pintar</span></button>
+      <button class="tool"    id="tErase" onclick="setTool('erase')">⬜<span>Borrar</span></button>
+      <button class="tool"    id="tFill"  onclick="setTool('fill')">🪣<span>Rellenar</span></button>
+      <button class="tool"    id="tPick"  onclick="setTool('pick')">💉<span>Picker</span></button>
+    </div>
+    <p style="font-size:10px;color:var(--dim);margin-top:7px;line-height:1.65">
+      Clic izquierdo: aplicar herramienta<br>
+      <b style="color:var(--accent)">Clic derecho: seleccionar color</b><br>
+      <b style="color:#ffd700">Ctrl+Clic: seleccionar región conectada</b><br>
+      → clic izq. o <b>Enter</b> aplica el color activo<br>
+      Scroll: arriba/abajo · <b>Ctrl+Scroll</b>: izq./der. · <b>Alt+Scroll</b>: zoom<br>
+      Ctrl+Z: deshacer · Esc: deseleccionar
+    </p>
+  </div>
+
+  <!-- Palette -->
+  <div class="sec" style="flex:1">
+    <div class="sec-t">🎨 Paleta de colores</div>
+    <div class="palscroll"><div id="palList"></div></div>
+    <button class="btn btn-o" style="margin-top:8px;font-size:11px" onclick="addColor()">+ Añadir color</button>
+  </div>
+
+  <!-- Save / Load -->
+  <div class="sec">
+    <div class="sec-t">💾 Guardar / Cargar</div>
+    <div id="saveStatus" style="font-size:10px;color:var(--ok);opacity:0.5;margin-bottom:7px;transition:opacity .4s;min-height:14px;"></div>
+    <div class="brow" style="margin-bottom:6px">
+      <button class="btn btn-p" onclick="saveProject()" title="Descargar proyecto como archivo .json">💾 Guardar</button>
+      <button class="btn btn-o" onclick="loadProject()" title="Restaurar desde archivo .json">📂 Cargar</button>
+    </div>
+    <button class="btn btn-o" style="font-size:10px;padding:5px" onclick="clearAutoSave()">🗑 Borrar auto-guardado</button>
+  </div>
+
+  <!-- Export -->
+  <div class="sec">
+    <div class="sec-t">📤 Exportar código JS</div>
+    <button class="btn btn-g" style="margin-bottom:6px" onclick="saveAsJS()" title="Genera el código y lo descarga como archivo .js">
+      💾 Guardar diseño (.js)
+    </button>
+    <div class="brow">
+      <button class="btn btn-o" onclick="genCode()" title="Genera el código y lo muestra abajo">📋 Previsualizar</button>
+      <button class="btn btn-o" onclick="copyCode()" title="Copiar código al portapapeles">📎 Copiar</button>
+    </div>
+    <button class="btn btn-o" style="margin-top:6px;font-size:11px;border-color:var(--accent);color:var(--accent)" onclick="openCodeModal()" title="Pegar o abrir un archivo .js generado anteriormente">
+      📥 Cargar desde código JS
+    </button>
+  </div>
+
+</aside>
+
+<!-- ── MAIN ───────────────────────────────────────────── -->
+<main class="main" id="mainArea">
+
+  <div class="empty" id="emptyState">
+    <div class="eico">🐜</div>
+    <p>Sube una imagen para comenzar<br>a diseñar tu nivel al estilo Miyuki</p>
+  </div>
+
+  <div id="editorArea" style="display:none;width:100%;flex-direction:column;align-items:center;gap:18px">
+    <div class="gw">
+      <div class="gtop">
+        <h3 id="gInfo">30 × 30 — 0 celdas activas</h3>
+        <div class="zbts">
+          <button class="zbt" onclick="doZoom(-2)" title="Alejar">−</button>
+          <button class="zbt" onclick="doZoom(2)"  title="Acercar">+</button>
+        </div>
+      </div>
+      <canvas id="gc"></canvas>
+    </div>
+
+    <div class="cpanel" id="cpanel" style="display:none">
+      <div class="cphead">
+        <h3>📄 Código JavaScript — LevelData.js</h3>
+        <button class="btn btn-o" style="width:auto;padding:5px 12px;font-size:11px" onclick="copyCode()">📎 Copiar</button>
+      </div>
+      <div class="cody" id="cody"></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<div class="toast" id="toast">✅ Copiado al portapapeles</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let srcData = null;           // ImageData of uploaded image
+let gRows=30, gCols=30;       // grid dimensions
+let grid=[];                  // grid[r][c] = colorId (0=empty)
+let pal=[];                   // [{id,rgb:[r,g,b],hex:'#rrggbb'}]
+let tool='paint', selId=1;
+let cz=16;                    // display px per cell
+let isDown=false;
+let undo=[];
+let selection=new Set();      // Set of "r,c" strings — Ctrl+Click region
+
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d',{alpha:false});
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
+const upzone=document.getElementById('upzone');
+const fileIn=document.getElementById('fileIn');
+upzone.addEventListener('click',()=>fileIn.click());
+upzone.addEventListener('dragover',e=>{e.preventDefault();upzone.classList.add('over')});
+upzone.addEventListener('dragleave',()=>upzone.classList.remove('over'));
+upzone.addEventListener('drop',e=>{
+  e.preventDefault();upzone.classList.remove('over');
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileIn.addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0])});
+
+function loadFile(file){
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Get pixel data
+      const oc=document.createElement('canvas');
+      oc.width=img.width;oc.height=img.height;
+      oc.getContext('2d').drawImage(img,0,0);
+      srcData=oc.getContext('2d').getImageData(0,0,img.width,img.height);
+      // Thumbnail
+      const t=document.getElementById('thumb');
+      t.src=ev.target.result;t.style.display='block';
+      // Auto process
+      processImage();
+    };
+    img.src=ev.target.result;
+  };
+  rd.readAsDataURL(file);
+}
+
+// ── Sliders ────────────────────────────────────────────────────────────────────
+document.getElementById('rCols').addEventListener('input',function(){document.getElementById('colV').textContent=this.value});
+document.getElementById('rRows').addEventListener('input',function(){document.getElementById('rowV').textContent=this.value});
+document.getElementById('rK').addEventListener('input',function(){document.getElementById('kV').textContent=this.value});
+
+// ── K-means ────────────────────────────────────────────────────────────────────
+const d2=(a,b)=>{const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return dr*dr+dg*dg+db*db};
+
+function kmeans(colors,k,iters=28){
+  if(!colors.length)return[];
+  k=Math.min(k,colors.length);
+  let cs=Array.from({length:k},(_,i)=>[...colors[Math.floor(i*colors.length/k)]]);
+  for(let it=0;it<iters;it++){
+    const S=Array.from({length:k},()=>[0,0,0]),C=new Array(k).fill(0);
+    for(const p of colors){
+      let b=0,bd=Infinity;
+      for(let j=0;j<k;j++){const d=d2(p,cs[j]);if(d<bd){bd=d;b=j;}}
+      S[b][0]+=p[0];S[b][1]+=p[1];S[b][2]+=p[2];C[b]++;
+    }
+    let chg=false;
+    for(let j=0;j<k;j++){
+      if(C[j]>0){
+        const n=[Math.round(S[j][0]/C[j]),Math.round(S[j][1]/C[j]),Math.round(S[j][2]/C[j])];
+        if(n[0]!==cs[j][0]||n[1]!==cs[j][1]||n[2]!==cs[j][2]){cs[j]=n;chg=true;}
+      }
+    }
+    if(!chg)break;
+  }
+  return cs;
+}
+
+// ── Sample grid ────────────────────────────────────────────────────────────────
+function sampleGrid(imgData,rows,cols){
+  const W=imgData.width,H=imgData.height;
+  const cw=W/cols,ch=H/rows;
+  const ix=0.13,iy=0.13; // inset ratio
+  return Array.from({length:rows},(_,r)=>
+    Array.from({length:cols},(_,c)=>{
+      const x0=Math.round(c*cw+cw*ix),y0=Math.round(r*ch+ch*iy);
+      const x1=Math.round((c+1)*cw-cw*ix),y1=Math.round((r+1)*ch-ch*iy);
+      let rs=0,gs=0,bs=0,n=0;
+      for(let py=y0;py<=y1;py++)for(let px=x0;px<=x1;px++){
+        const i=(py*W+px)*4;
+        rs+=imgData.data[i];gs+=imgData.data[i+1];bs+=imgData.data[i+2];n++;
+      }
+      return n?[Math.round(rs/n),Math.round(gs/n),Math.round(bs/n)]:[128,128,128];
+    })
+  );
+}
+
+// ── Build palette ──────────────────────────────────────────────────────────────
+function buildPal(cents){
+  pal=[];
+  for(const c of cents){
+    if(pal.some(p=>d2(c,p.rgb)<400))continue;
+    pal.push({id:pal.length+1,rgb:[...c],hex:toHex(c)});
+  }
+}
+
+function nearId(rgb){
+  let b=0,bd=Infinity;
+  for(const p of pal){const d=d2(rgb,p.rgb);if(d<bd){bd=d;b=p.id;}}
+  return b;
+}
+
+// ── Process ────────────────────────────────────────────────────────────────────
+function processImage(){
+  if(!srcData)return;
+  gRows=+document.getElementById('rRows').value;
+  gCols=+document.getElementById('rCols').value;
+  const K=+document.getElementById('rK').value;
+  const useBg=document.getElementById('chkBg').checked;
+
+  const sampled=sampleGrid(srcData,gRows,gCols);
+  const flat=sampled.flat();
+
+  if(useBg){
+    // K-means with extra clusters
+    const allC=kmeans(flat,Math.min(K+4,flat.length),30);
+
+    // Assign each cell to a centroid
+    const asgn=sampled.map(row=>row.map(rgb=>{
+      let b=0,bd=Infinity;
+      allC.forEach((c,j)=>{const d=d2(rgb,c);if(d<bd){bd=d;b=j;}});
+      return b;
+    }));
+
+    // Border votes
+    const BR=Math.max(2,Math.round(Math.min(gRows,gCols)*0.09));
+    const votes=new Array(allC.length).fill(0);
+    let total=0;
+    for(let r=0;r<gRows;r++)for(let c=0;c<gCols;c++){
+      if(r<BR||r>=gRows-BR||c<BR||c>=gCols-BR){votes[asgn[r][c]]++;total++;}
+    }
+    const isBg=votes.map(v=>total>0&&v/total>=0.04);
+
+    // Figure pixels
+    const figPx=[];
+    for(let r=0;r<gRows;r++)for(let c=0;c<gCols;c++){
+      if(!isBg[asgn[r][c]])figPx.push(sampled[r][c]);
+    }
+    const figC=figPx.length>0?kmeans(figPx,Math.min(K,figPx.length),30):kmeans(flat,Math.min(K,flat.length),30);
+    buildPal(figC);
+
+    grid=sampled.map((row,ri)=>row.map((_,ci)=>
+      isBg[asgn[ri][ci]]?0:(pal.length?nearId(sampled[ri][ci]):0)
+    ));
+  } else {
+    buildPal(kmeans(flat,Math.min(K,flat.length),30));
+    grid=sampled.map(row=>row.map(rgb=>pal.length?nearId(rgb):0));
+  }
+
+  // Show editor
+  document.getElementById('emptyState').style.display='none';
+  const ea=document.getElementById('editorArea');
+  ea.style.display='flex';
+  undo=[];selection.clear();
+  updatePal();
+  render();
+}
+
+// ── Color helpers ──────────────────────────────────────────────────────────────
+const toHex=([r,g,b])=>'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+const fromHex=h=>{const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255]};
+const toGameHex=([r,g,b])=>'0x'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
+
+// ── Palette UI ─────────────────────────────────────────────────────────────────
+function cntCell(id){let n=0;for(const row of grid)for(const v of row)if(v===id)n++;return n}
+
+function updatePal(){
+  const list=document.getElementById('palList');
+  list.innerHTML='';
+  for(const p of pal){
+    const cnt=cntCell(p.id);
+    const el=document.createElement('div');
+    el.className='pi'+(p.id===selId?' sel':'');
+    el.dataset.id=p.id;
+    el.addEventListener('click',()=>{
+      if(selection.size>0){
+        // Aplicar a toda la selección activa
+        saveUndo();
+        for(const k of selection){
+          const[sr,sc]=k.split(',').map(Number);
+          grid[sr][sc]=p.id;
+        }
+        selection.clear();
+        render();updatePal();
+      } else {
+        selId=p.id;updatePal();
+      }
+    });
+    el.innerHTML=`
+      <div class="psw" style="background:${p.hex}">
+        <input type="color" value="${p.hex}" data-id="${p.id}">
+      </div>
+      <div class="pmeta">
+        <div class="pcnt">${cnt} celdas</div>
+        <div class="phex">${p.hex}</div>
+      </div>
+      <span class="pid">#${p.id}</span>
+      <button class="pdel" data-id="${p.id}">✕</button>
+    `;
+    list.appendChild(el);
+
+    el.querySelector('input[type=color]').addEventListener('change',ev=>{
+      ev.stopPropagation();
+      const pid=+ev.target.dataset.id;
+      const pp=pal.find(x=>x.id===pid);
+      if(pp){pp.hex=ev.target.value;pp.rgb=fromHex(ev.target.value);render();}
+    });
+    el.querySelector('input[type=color]').addEventListener('click',e=>e.stopPropagation());
+    el.querySelector('.pdel').addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const pid=+ev.target.dataset.id;
+      for(let r=0;r<gRows;r++)for(let c=0;c<gCols;c++)if(grid[r][c]===pid)grid[r][c]=0;
+      pal=pal.filter(x=>x.id!==pid);
+      updatePal();render();
+    });
+  }
+  updInfo();
+}
+
+function updInfo(){
+  let act=0;for(const row of grid)for(const v of row)if(v>0)act++;
+  const selTxt=selection.size>0?` · ✨ ${selection.size} sel. — clic izq. o Enter para aplicar color`:'';
+  document.getElementById('gInfo').textContent=`${gCols} × ${gRows} — ${act} activas${selTxt}`;
+}
+
+function addColor(){
+  const id=pal.length?Math.max(...pal.map(p=>p.id))+1:1;
+  pal.push({id,rgb:[128,128,128],hex:'#808080'});
+  selId=id;updatePal();
+}
+
+// ── Tools ──────────────────────────────────────────────────────────────────────
+function setTool(t){
+  tool=t;
+  document.querySelectorAll('.tool').forEach(b=>b.classList.remove('on'));
+  document.getElementById('t'+t[0].toUpperCase()+t.slice(1)).classList.add('on');
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function render(){
+  canvas.width=gCols*cz;canvas.height=gRows*cz;
+  for(let r=0;r<gRows;r++){
+    for(let c=0;c<gCols;c++){
+      const id=grid[r]?.[c]??0;
+      const x=c*cz,y=r*cz;
+      if(id===0){
+        ctx.fillStyle=(r+c)%2===0?'#181b2c':'#111426';
+        ctx.fillRect(x,y,cz,cz);
+      } else {
+        const p=pal.find(p=>p.id===id);
+        if(!p)continue;
+        ctx.fillStyle=p.hex;
+        ctx.fillRect(x,y,cz,cz);
+        if(cz>=10){
+          ctx.fillStyle='rgba(255,255,255,.20)';
+          ctx.fillRect(x,y,cz,2);ctx.fillRect(x,y+2,2,cz-2);
+          ctx.fillStyle='rgba(0,0,0,.28)';
+          ctx.fillRect(x,y+cz-2,cz,2);ctx.fillRect(x+cz-2,y,2,cz-2);
+        }
+      }
+      if(cz>=5){
+        ctx.strokeStyle='rgba(0,0,0,.22)';ctx.lineWidth=.5;
+        ctx.strokeRect(x+.25,y+.25,cz-.5,cz-.5);
+      }
+    }
+  }
+  // ── Dibujar selección (highlight + borde exterior) ──────────────────────
+  if(selection.size>0){
+    // Relleno semitransparente
+    ctx.fillStyle='rgba(255,215,0,.22)';
+    for(const k of selection){
+      const[sr,sc]=k.split(',').map(Number);
+      ctx.fillRect(sc*cz,sr*cz,cz,cz);
+    }
+    // Borde dorado en aristas externas de la selección
+    const lw=Math.max(1.5,Math.min(3,cz*0.13));
+    ctx.strokeStyle='#ffd700';
+    ctx.lineWidth=lw;
+    ctx.lineCap='square';
+    for(const k of selection){
+      const[sr,sc]=k.split(',').map(Number);
+      const sx=sc*cz,sy=sr*cz;
+      if(!selection.has((sr-1)+','+sc)){ctx.beginPath();ctx.moveTo(sx,sy+lw*.5);ctx.lineTo(sx+cz,sy+lw*.5);ctx.stroke();}
+      if(!selection.has((sr+1)+','+sc)){ctx.beginPath();ctx.moveTo(sx,sy+cz-lw*.5);ctx.lineTo(sx+cz,sy+cz-lw*.5);ctx.stroke();}
+      if(!selection.has(sr+','+(sc-1))){ctx.beginPath();ctx.moveTo(sx+lw*.5,sy);ctx.lineTo(sx+lw*.5,sy+cz);ctx.stroke();}
+      if(!selection.has(sr+','+(sc+1))){ctx.beginPath();ctx.moveTo(sx+cz-lw*.5,sy);ctx.lineTo(sx+cz-lw*.5,sy+cz);ctx.stroke();}
+    }
+  }
+  updInfo();
+  scheduleAutoSave();
+}
+
+// ── Canvas events ──────────────────────────────────────────────────────────────
+function cellAt(e){
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+  const c=Math.floor((e.clientX-rect.left)*sx/cz);
+  const r=Math.floor((e.clientY-rect.top)*sy/cz);
+  return(r>=0&&r<gRows&&c>=0&&c<gCols)?{r,c}:null;
+}
+
+function apply(r,c){
+  if(tool==='paint'){grid[r][c]=selId;}
+  else if(tool==='erase'){grid[r][c]=0;}
+  else if(tool==='fill'){flood(r,c,grid[r][c],selId);}
+  else if(tool==='pick'){
+    const id=grid[r][c];
+    if(id>0){selId=id;setTool('paint');updatePal();}
+  }
+}
+
+// Iterative flood fill (avoids stack overflow on large grids)
+function flood(sr,sc,from,to){
+  if(from===to)return;
+  const q=[[sr,sc]];
+  while(q.length){
+    const[r,c]=q.pop();
+    if(r<0||r>=gRows||c<0||c>=gCols||grid[r][c]!==from)continue;
+    grid[r][c]=to;
+    q.push([r-1,c],[r+1,c],[r,c-1],[r,c+1]);
+  }
+}
+
+// Flood select — selecciona región conectada del mismo color
+function floodSelect(sr,sc){
+  const targetId=grid[sr][sc];
+  selection=new Set();
+  const q=[[sr,sc]];
+  while(q.length){
+    const[r,c]=q.pop();
+    if(r<0||r>=gRows||c<0||c>=gCols)continue;
+    const k=r+','+c;
+    if(selection.has(k)||grid[r][c]!==targetId)continue;
+    selection.add(k);
+    q.push([r-1,c],[r+1,c],[r,c-1],[r,c+1]);
+  }
+}
+
+canvas.addEventListener('mousedown',e=>{
+  e.preventDefault();
+  if(e.button===2)return; // clic derecho lo maneja contextmenu
+  isDown=true;
+  const cell=cellAt(e);
+  if(!cell)return;
+  if(e.ctrlKey){
+    // Ctrl+Clic: seleccionar región conectada (acumula si ya hay selección)
+    floodSelect(cell.r,cell.c);
+    render();updatePal();
+  } else if(selection.size>0){
+    // Clic izquierdo con selección activa → aplica el color activo a toda la selección
+    applyColorToSelection();
+  } else {
+    saveUndo();
+    apply(cell.r,cell.c);
+    render();updatePal();
+  }
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!isDown||e.button===2||e.ctrlKey)return;
+  const cell=cellAt(e);
+  if(cell){apply(cell.r,cell.c);render();}
+});
+canvas.addEventListener('mouseup',()=>{isDown=false;updatePal();});
+canvas.addEventListener('mouseleave',()=>{isDown=false;});
+// Clic derecho = eyedropper (seleccionar color)
+canvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  const cell=cellAt(e);
+  if(cell&&grid[cell.r][cell.c]>0){
+    selId=grid[cell.r][cell.c];
+    selection.clear();
+    setTool('paint');
+    updatePal();
+  }
+});
+
+// Touch
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();isDown=true;
+  const cell=cellAt(e.touches[0]);
+  if(cell){saveUndo();apply(cell.r,cell.c,false);render();updatePal();}
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const cell=cellAt(e.touches[0]);
+  if(cell){apply(cell.r,cell.c,false);render();}
+},{passive:false});
+canvas.addEventListener('touchend',()=>{isDown=false;updatePal();});
+
+// ── Zoom (solo botones +/-) ────────────────────────────────────────────────────
+function doZoom(d){cz=Math.max(4,Math.min(48,cz+d));render();}
+
+// ── Scroll del diseño ─────────────────────────────────────────────────────────
+// Scroll normal → arriba/abajo · Ctrl+Scroll → izquierda/derecha · Alt+Scroll → zoom
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const main=document.getElementById('mainArea');
+  if(e.altKey){
+    doZoom(e.deltaY<0?2:-2);     // Alt+scroll → zoom
+  } else if(e.ctrlKey){
+    main.scrollLeft+=e.deltaY;   // Ctrl+scroll → horizontal
+  } else {
+    main.scrollTop+=e.deltaY;    // scroll normal → vertical
+  }
+},{passive:false});
+
+// ── Aplicar color a toda la selección activa ──────────────────────────────────
+function applyColorToSelection(){
+  if(!selection.size)return;
+  saveUndo();
+  for(const k of selection){
+    const[sr,sc]=k.split(',').map(Number);
+    if(tool==='erase') grid[sr][sc]=0;
+    else grid[sr][sc]=selId;
+  }
+  selection.clear();
+  render();updatePal();
+}
+
+// ── Undo ───────────────────────────────────────────────────────────────────────
+function saveUndo(){undo.push(grid.map(r=>[...r]));if(undo.length>50)undo.shift();}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){
+    e.preventDefault();
+    if(undo.length){grid=undo.pop();selection.clear();render();updatePal();}
+  }
+  if(e.key==='Escape'&&selection.size>0){
+    selection.clear();render();updatePal();
+  }
+  // Enter → aplica el color activo a la selección actual
+  if(e.key==='Enter'&&selection.size>0){
+    e.preventDefault();
+    applyColorToSelection();
+  }
+});
+
+// Auto-guardar cuando cambian los campos de datos del nivel
+['lvlName','cellSz','boxCols','holeGap'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('change', scheduleAutoSave);
+});
+
+// ── Export ─────────────────────────────────────────────────────────────────────
+function genCode(){
+  const name=document.getElementById('lvlName').value.trim()||'Nivel 1';
+  const cpx=+document.getElementById('cellSz').value||12;
+  const bc=+document.getElementById('boxCols').value||4;
+  const hg=+document.getElementById('holeGap').value||70;
+
+  const used=new Set();
+  for(const row of grid)for(const v of row)if(v>0)used.add(v);
+  const up=pal.filter(p=>used.has(p.id));
+  const cnts={};
+  for(const p of up)cnts[p.id]=0;
+  for(const row of grid)for(const v of row)if(cnts[v]!=null)cnts[v]++;
+  const boxes=up.map(p=>({id:p.id,n:cnts[p.id]})).sort((a,b)=>b.n-a.n);
+
+  let s=`// ── Level 1 — "${name}" ${'─'.repeat(Math.max(0,50-name.length))}\n`;
+  s+=`// Pixel-art ${gCols}×${gRows} generado con Colony Flow Editor\n\n`;
+  s+=`export const LEVEL_1 = {\n`;
+  s+=`    id: 1,\n`;
+  s+=`    name: '${name}',\n`;
+  s+=`    cols: ${gCols},\n`;
+  s+=`    rows: ${gRows},\n`;
+  s+=`    cell: ${cpx},\n`;
+  s+=`    holeGap: ${hg},\n`;
+  s+=`    boxCols: ${bc},\n\n`;
+  s+=`    colors: {\n`;
+  for(const p of up)s+=`        ${p.id}: ${toGameHex(p.rgb)},  // ${p.hex}\n`;
+  s+=`    },\n\n`;
+  s+=`    grid: [\n`;
+  for(let r=0;r<gRows;r++)s+=`        [${(grid[r]||[]).join(',')}],\n`;
+  s+=`    ],\n\n`;
+  s+=`    // Cajas ordenadas por conteo descendente\n`;
+  s+=`    boxes: [\n`;
+  for(const b of boxes)s+=`        [${b.id}, ${b.n}],  // ${pal.find(p=>p.id===b.id)?.hex}\n`;
+  s+=`    ],\n`;
+  s+=`};\n`;
+
+  document.getElementById('cody').textContent=s;
+  const p=document.getElementById('cpanel');
+  p.style.display='block';
+  p.scrollIntoView({behavior:'smooth'});
+}
+
+function copyCode(){
+  const txt=document.getElementById('cody').textContent;
+  if(!txt){genCode();return;}
+  navigator.clipboard.writeText(txt).then(()=>showToast('✅ Copiado al portapapeles'));
+}
+
+function saveAsJS(){
+  if(!grid.length){showToast('⚠ Nada que guardar aún');return;}
+  // Asegurar que el código está generado y actualizado
+  genCode();
+  const code=document.getElementById('cody').textContent;
+  if(!code){showToast('❌ Error al generar el código');return;}
+  const blob=new Blob([code],{type:'text/javascript;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  const name=(document.getElementById('lvlName').value.trim()||'nivel')
+    .toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  a.download=name+'_level.js';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('📄 Diseño guardado como ' + a.download);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg,dur=2400){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(t._tim);
+  t._tim=setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+// ── Save / Load ───────────────────────────────────────────────────────────────
+const SAVE_KEY='colony_flow_v1';
+let _asTimer=null;
+
+function stateToJSON(){
+  return JSON.stringify({
+    v:1,
+    name:document.getElementById('lvlName').value,
+    cellSz:+document.getElementById('cellSz').value,
+    boxCols:+document.getElementById('boxCols').value,
+    holeGap:+document.getElementById('holeGap').value,
+    gRows,gCols,
+    pal:pal.map(p=>({id:p.id,hex:p.hex,rgb:p.rgb})),
+    grid,
+    ts:Date.now()
+  });
+}
+
+function stateFromJSON(json){
+  const d=JSON.parse(json);
+  if(!d.grid||!d.pal||d.v!==1)return false;
+  gRows=d.gRows; gCols=d.gCols;
+  pal=d.pal; grid=d.grid;
+  document.getElementById('lvlName').value  = d.name||'Nivel 1';
+  document.getElementById('cellSz').value   = d.cellSz||12;
+  document.getElementById('boxCols').value  = d.boxCols||4;
+  document.getElementById('holeGap').value  = d.holeGap||70;
+  document.getElementById('rCols').value    = gCols;
+  document.getElementById('rRows').value    = gRows;
+  document.getElementById('colV').textContent = gCols;
+  document.getElementById('rowV').textContent = gRows;
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('editorArea').style.display='flex';
+  undo=[];selection.clear();
+  updatePal();render();
+  return true;
+}
+
+function scheduleAutoSave(){
+  if(!grid.length)return;
+  clearTimeout(_asTimer);
+  _asTimer=setTimeout(()=>{
+    try{
+      localStorage.setItem(SAVE_KEY,stateToJSON());
+      const el=document.getElementById('saveStatus');
+      if(el){
+        const t=new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+        el.textContent=`✓ Auto-guardado ${t}`;
+        el.style.color='var(--ok)';el.style.opacity='1';
+        setTimeout(()=>{el.style.opacity='0.5';},3000);
+      }
+    }catch(e){console.warn('Auto-save:',e);}
+  },1500);
+}
+
+function saveProject(){
+  if(!grid.length){showToast('⚠ Nada que guardar aún');return;}
+  const blob=new Blob([stateToJSON()],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(document.getElementById('lvlName').value.trim()||'nivel')+'.cfp.json';
+  a.click();URL.revokeObjectURL(a.href);
+  showToast('💾 Proyecto guardado como archivo');
+}
+
+function loadProject(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='.json';
+  inp.onchange=ev=>{
+    const file=ev.target.files[0];if(!file)return;
+    const rd=new FileReader();
+    rd.onload=re=>{
+      try{
+        if(stateFromJSON(re.target.result)){showToast('📂 Proyecto cargado correctamente');}
+        else{showToast('❌ Formato de archivo no válido');}
+      }catch(e){showToast('❌ Error al leer el archivo');}
+    };
+    rd.readAsText(file);
+  };
+  inp.click();
+}
+
+function clearAutoSave(){
+  localStorage.removeItem(SAVE_KEY);
+  const el=document.getElementById('saveStatus');
+  if(el){el.textContent='Auto-guardado eliminado';el.style.color='var(--err)';el.style.opacity='1';}
+  showToast('🗑 Auto-guardado eliminado del navegador');
+}
+
+// Restaurar sesión anterior al abrir la página
+window.addEventListener('load',()=>{
+  try{
+    const saved=localStorage.getItem(SAVE_KEY);
+    if(!saved)return;
+    const d=JSON.parse(saved);
+    const min=Math.round((Date.now()-(d.ts||0))/60000);
+    const ago=min<1?'hace un momento':min<60?`hace ${min} min`:`hace ${Math.round(min/60)} h`;
+    if(stateFromJSON(saved)){
+      showToast(`✅ Sesión restaurada (${ago})`,3500);
+      const el=document.getElementById('saveStatus');
+      if(el){el.textContent=`Guardado ${ago}`;el.style.opacity='0.7';}
+    }
+  }catch(e){}
+});
+// ── Cargar desde código JS ────────────────────────────────────────────────────
+function openCodeModal(){
+  document.getElementById('codeModal').style.display='flex';
+  document.getElementById('codeInput').focus();
+}
+
+function closeCodeModal(){
+  document.getElementById('codeModal').style.display='none';
+}
+
+function loadJsFile(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='.js';
+  inp.onchange=ev=>{
+    const file=ev.target.files[0];if(!file)return;
+    const rd=new FileReader();
+    rd.onload=re=>{
+      document.getElementById('codeInput').value=re.target.result;
+    };
+    rd.readAsText(file);
+  };
+  inp.click();
+}
+
+function parseAndLoadCode(){
+  const code=document.getElementById('codeInput').value.trim();
+  if(!code){showToast('⚠ Pega el código primero');return;}
+  try{
+    // Extraer el objeto literal después del '='
+    const match=code.match(/=\s*(\{[\s\S]*\})\s*;?\s*$/);
+    if(!match)throw new Error('No se encontró el objeto de nivel. ¿Falta "= { ... }" ?');
+    const d=new Function('return '+match[1])();
+    if(!d.grid||!d.colors||!d.cols||!d.rows)
+      throw new Error('El objeto no tiene grid, colors, cols o rows');
+
+    // Construir paleta desde colors (valores hex numéricos: 0x10402b)
+    const newPal=[];
+    for(const[idStr,hexNum] of Object.entries(d.colors)){
+      const id=parseInt(idStr);
+      const r=(hexNum>>16)&255, g=(hexNum>>8)&255, b=hexNum&255;
+      const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+      newPal.push({id,rgb:[r,g,b],hex});
+    }
+    newPal.sort((a,b)=>a.id-b.id);
+
+    // Aplicar estado
+    gRows=d.rows; gCols=d.cols;
+    pal=newPal;
+    grid=d.grid.map(row=>[...row]);
+    document.getElementById('lvlName').value = d.name||'Nivel 1';
+    document.getElementById('cellSz').value  = d.cell||12;
+    document.getElementById('boxCols').value = d.boxCols||4;
+    document.getElementById('holeGap').value = d.holeGap||70;
+    document.getElementById('rCols').value   = gCols;
+    document.getElementById('rRows').value   = gRows;
+    document.getElementById('colV').textContent = gCols;
+    document.getElementById('rowV').textContent = gRows;
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('editorArea').style.display='flex';
+    undo=[];selection.clear();
+    updatePal();render();
+    closeCodeModal();
+    showToast(`✅ Diseño cargado: ${gCols}×${gRows} · ${newPal.length} colores`);
+  }catch(e){
+    showToast('❌ Error: '+e.message);
+    console.error('parseAndLoadCode:',e);
+  }
+}
+</script>
+
+<!-- ── Modal: cargar desde código JS ──────────────────────────────────── -->
+<div id="codeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:2px">📥 Cargar diseño desde código JS</div>
+        <div style="font-size:11px;color:var(--dim)">Pega el código generado o abre un archivo <code>.js</code></div>
+      </div>
+      <button onclick="closeCodeModal()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:22px;line-height:1;padding:4px">✕</button>
+    </div>
+    <!-- Textarea -->
+    <textarea id="codeInput"
+      placeholder="// Pega aquí el código generado, por ejemplo:&#10;&#10;export const LEVEL_1 = {&#10;    id: 1,&#10;    name: 'Nivel 1',&#10;    cols: 60,&#10;    rows: 60,&#10;    colors: { 1: 0x10402b, ... },&#10;    grid: [ [...], ... ],&#10;    boxes: [ [1, 307], ... ],&#10;};"
+      style="flex:1;min-height:320px;background:#090b13;border:1px solid var(--border);border-radius:8px;color:#a6c3f0;font-family:'Cascadia Code','Fira Code',monospace;font-size:11.5px;padding:14px;resize:vertical;outline:none;line-height:1.5"></textarea>
+    <!-- Buttons -->
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p" onclick="parseAndLoadCode()" style="flex:2">⚡ Cargar diseño</button>
+      <button class="btn btn-o" onclick="loadJsFile()" style="flex:1" title="Abrir archivo .js">📂 Abrir .js</button>
+      <button class="btn btn-o" onclick="closeCodeModal()" style="flex:1">Cancelar</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

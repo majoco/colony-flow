@@ -1,0 +1,8 @@
+{
+  "appId": "com.colonyflow.game",
+  "appName": "Colony Flow",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
