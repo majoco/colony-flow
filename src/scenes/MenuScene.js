@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getLevels } from './GameScene.js';
 
 function lighten(hex, amt) {
     const r = Math.min(255, ((hex >> 16) & 0xFF) + amt);
@@ -348,16 +349,99 @@ export class MenuScene extends Phaser.Scene {
     // ── Play Button ────────────────────────────────────────────────────────────
     createLevelButtons(W, H) {
         // Título de sección
-        this.add.text(W / 2, H * 0.720, 'Selecciona Nivel', {
+        this.add.text(W / 2, H * 0.700, 'Selecciona Nivel', {
             fontSize: '18px', fontStyle: 'bold',
             color: '#FFFFFF', stroke: '#1B5E20', strokeThickness: 3,
         }).setOrigin(0.5).setDepth(2);
 
-        // Botón Nivel 1 — Harry Potter (32×32)
-        this._makeLevelBtn(W / 2, H * 0.760, '⚡ Nivel 1', '32×32', 1, W, H);
+        // Lista dinámica: todos los LEVEL_N definidos en LevelData.js.
+        // Cuadrícula de 5 × 3 por página (hasta 100 niveles con paginación).
+        this.levels    = getLevels();
+        this.levelPage = 0;
+        this.levelGrid = this.add.container(0, 0).setDepth(2);
+        this._drawLevelPage(W, H);
+    }
 
-        // Botón Nivel 2 — 60×60 (23 colores)
-        this._makeLevelBtn(W / 2, H * 0.840, '🌿 Nivel 2', '60×60', 2, W, H);
+    _drawLevelPage(W, H) {
+        const PER_ROW = 5, ROWS = 3, PER_PAGE = PER_ROW * ROWS;
+        const pages = Math.max(1, Math.ceil(this.levels.length / PER_PAGE));
+        this.levelPage = Phaser.Math.Clamp(this.levelPage, 0, pages - 1);
+        this.levelGrid.removeAll(true);
+
+        const slice = this.levels.slice(this.levelPage * PER_PAGE, (this.levelPage + 1) * PER_PAGE);
+        const cellW = 64, cellH = 50;
+        const x0 = W / 2 - ((PER_ROW - 1) * cellW) / 2;
+        const y0 = H * 0.745;
+
+        slice.forEach((lv, i) => {
+            const bx = x0 + (i % PER_ROW) * cellW;
+            const by = y0 + Math.floor(i / PER_ROW) * cellH;
+            this._makeLevelChip(bx, by, lv);
+        });
+
+        // Paginación
+        if (pages > 1) {
+            const py = y0 + ROWS * cellH - 8;
+            const mk = (x, label, dir) => {
+                const t = this.add.text(x, py, label, {
+                    fontSize: '20px', fontStyle: 'bold', color: '#FFFFFF',
+                    stroke: '#1B5E20', strokeThickness: 3,
+                }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+                t.on('pointerdown', () => { this.levelPage += dir; this._drawLevelPage(W, H); });
+                this.levelGrid.add(t);
+            };
+            mk(W / 2 - 60, '◀', -1);
+            mk(W / 2 + 60, '▶', 1);
+            this.levelGrid.add(this.add.text(W / 2, py, `${this.levelPage + 1} / ${pages}`, {
+                fontSize: '13px', color: '#FFFFFF', stroke: '#1B5E20', strokeThickness: 2,
+            }).setOrigin(0.5));
+        }
+    }
+
+    // Botón compacto de nivel: número grande + tamaño del tablero
+    _makeLevelChip(bx, by, lv) {
+        const bw = 56, bh = 42, rad = 12;
+        const palette = [
+            [0x43A047, 0x66BB6A, 0x1B5E20],
+            [0x1565C0, 0x1E88E5, 0x0D47A1],
+            [0x6A1B9A, 0x9C27B0, 0x4A148C],
+            [0xEF6C00, 0xFB8C00, 0xE65100],
+            [0xC62828, 0xE53935, 0xB71C1C],
+        ];
+        const [colorMain, colorShine, colorShadow] = palette[(lv.id - 1) % palette.length];
+
+        const shadowG = this.add.graphics();
+        shadowG.fillStyle(colorShadow, 0.8);
+        shadowG.fillRoundedRect(bx - bw / 2, by - bh / 2 + 4, bw, bh, rad);
+
+        const btnG = this.add.graphics();
+        btnG.fillStyle(colorMain);
+        btnG.fillRoundedRect(bx - bw / 2, by - bh / 2, bw, bh, rad);
+        btnG.fillStyle(colorShine);
+        btnG.fillRoundedRect(bx - bw / 2 + 3, by - bh / 2 + 3, bw - 6, bh * 0.34, (bh * 0.34) / 2);
+
+        const txt = this.add.text(bx, by - 5, String(lv.id), {
+            fontSize: '20px', fontStyle: 'bold',
+            color: '#FFFFFF', stroke: colorShadow, strokeThickness: 3,
+        }).setOrigin(0.5);
+        const sub = this.add.text(bx, by + 13, `${lv.data.cols}×${lv.data.rows}`, {
+            fontSize: '9px', color: '#E8F5E9',
+        }).setOrigin(0.5);
+
+        btnG.setInteractive(
+            new Phaser.Geom.Rectangle(bx - bw / 2, by - bh / 2, bw, bh),
+            Phaser.Geom.Rectangle.Contains
+        );
+        btnG.on('pointerover', () => btnG.setAlpha(0.9));
+        btnG.on('pointerout',  () => btnG.setAlpha(1));
+        btnG.on('pointerdown', () => {
+            this.tweens.add({
+                targets: [btnG, txt, sub], scaleX: 0.93, scaleY: 0.93,
+                duration: 90, yoyo: true,
+                onComplete: () => this.scene.start('Game', { levelId: lv.id }),
+            });
+        });
+        this.levelGrid.add([shadowG, btnG, txt, sub]);
     }
 
     _makeLevelBtn(bx, by, label, sublabel, levelId, _W, _H) {

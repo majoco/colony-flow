@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// Credenciales de firma: se leen de android/keystore.properties (archivo local, NO versionado).
+// Formato:
+//   storeFile=colonyflow.keystore
+//   storePassword=...
+//   keyAlias=...
+//   keyPassword=...
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace = "com.colonyflow.game"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +28,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystoreProps['storeFile']) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Solo se firma si existe android/keystore.properties
+            if (keystoreProps['storeFile']) signingConfig signingConfigs.release
         }
     }
 }

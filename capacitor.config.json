@@ -1,6 +1,6 @@
 {
   "appId": "com.colonyflow.game",
-  "appName": "Colony Flow",
+  "appName": "Bachacos",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

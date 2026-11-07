@@ -5,3 +5,14 @@ android/.gradle/
 android/local.properties
 *.local
 .env
+
+# Firma Android (credenciales locales, nunca versionar)
+android/keystore.properties
+android/*.keystore
+android/*.jks
+
+# Archivos temporales de pruebas
+_*.py
+_*.cjs
+_*.mjs
+_*.png

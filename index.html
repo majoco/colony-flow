@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Colony Flow</title>
+    <title>Bachacos</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
@@ -15,7 +15,14 @@
         justify-content: center;
         align-items: center;
       }
-      #app { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+      /* El juego no se muestra más grande que un teléfono Android promedio (412×915 CSS px).
+         Phaser.Scale.FIT se ajusta al tamaño del contenedor → en escritorio queda centrado
+         con el tamaño de un móvil; en un móvil real ocupa toda la pantalla. */
+      #app {
+        width: 100%; height: 100%;
+        max-width: 412px; max-height: 915px;
+        display: flex; justify-content: center; align-items: center;
+      }
       canvas { display: block; margin: auto; touch-action: none; }
     </style>
   </head>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Colony Flow — Editor de Niveles Miyuki</title>
+<title>Bachacos — Editor de Niveles Miyuki</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -50,6 +50,8 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 /* Buttons */
 .btn{display:block;width:100%;padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;text-align:center}
 .btn:hover{opacity:.88}.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn:disabled:hover{opacity:.4}
 .btn-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
 .btn-g{background:var(--ok);color:#fff}
 .btn-o{background:var(--surface2);color:var(--dim);border:1px solid var(--border)}
@@ -76,6 +78,100 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 .pid{font-size:10px;color:var(--dim);background:var(--surface2);border-radius:3px;padding:1px 4px}
 .pdel{background:none;border:none;color:var(--dim);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px}
 .pdel:hover{color:var(--err);background:rgba(239,68,68,.1)}
+.psel{background:none;border:none;color:var(--dim);font-size:14px;line-height:1;cursor:pointer;padding:2px 4px;border-radius:4px}
+/* Nº de cajas por color (paleta) */
+.pbox{display:flex;align-items:center;gap:2px;font-size:11px;color:var(--dim)}
+.pbox input.pboxn{width:38px;padding:2px 4px;font-size:11px;text-align:center;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px}
+.pbox input.pboxn::-webkit-inner-spin-button{opacity:1}
+.psel:hover{color:#ffd700;background:rgba(255,215,0,.12)}
+
+/* ── Right Sidebar ─────────────────────────────────── */
+.rsidebar{width:282px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.bxrow{display:grid;grid-template-columns:34px 1fr 52px 44px;gap:3px;align-items:center;padding:4px 2px;border-radius:6px;border:1px solid transparent;margin-bottom:2px}
+.bxhdr{border-bottom:1px solid var(--border);margin-bottom:4px;padding-bottom:6px!important}
+.bxrow:hover:not(.bxhdr){background:var(--surface2);border-color:var(--border)}
+.bxord{display:flex;flex-direction:column;align-items:center;gap:1px}
+.bxnum{font-size:9px;color:var(--dim);font-weight:700;line-height:1;margin-bottom:2px}
+.bxarrows{display:flex;gap:1px}
+.bxarr{background:none;border:1px solid var(--border);border-radius:3px;color:var(--dim);cursor:pointer;font-size:8px;padding:0 3px;line-height:1.6;transition:all .1s}
+.bxarr:hover:not([disabled]){color:var(--accent);border-color:var(--accent)}
+.bxarr[disabled]{opacity:.3;cursor:default}
+.bxcol{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden}
+.bxants{display:flex;flex-direction:column;gap:2px;align-items:center}
+.bxinput{width:44px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;font-weight:700;padding:2px 4px;text-align:center;outline:none;transition:border-color .15s}
+.bxinput:focus{border-color:var(--accent)}
+.bxbar{width:44px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.bxfill{height:100%;background:linear-gradient(90deg,var(--ok),var(--accent));border-radius:2px;transition:width .2s}
+.bxact{display:flex;gap:2px;justify-content:center;align-items:center}
+.bxdiff{border:none;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;padding:2px 5px;line-height:1.4;transition:opacity .15s}
+.bxdiff:hover{opacity:.75}
+.bxdel{background:none;border:none;color:var(--dim);font-size:11px;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1.4}
+.bxdel:hover{color:var(--err);background:rgba(239,68,68,.1)}
+/* Heatmap toggle activo */
+.btn-hmon{background:rgba(251,191,36,.12)!important;color:#fbbf24!important;border-color:#fbbf24!important}
+/* Leyenda de gradiente */
+.heat-bar{height:10px;border-radius:5px;background:linear-gradient(90deg,#22c55e,#fbbf24,#f97316,#ef4444);margin:4px 0}
+.heat-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-bottom:2px}
+/* ── Cajas estilo juego — canvas-based (grid view) ─── */
+/* Grid: fondo cálido beige + trama argyle igual al juego */
+.bxgrid{
+  display:grid;gap:7px;margin-bottom:6px;
+  background-color:#F5D5A0;
+  background-image:
+    repeating-linear-gradient( 45deg,rgba(224,184,112,.42) 0,rgba(224,184,112,.42) 1px,transparent 0,transparent 50%),
+    repeating-linear-gradient(-45deg,rgba(224,184,112,.42) 0,rgba(224,184,112,.42) 1px,transparent 0,transparent 50%);
+  background-size:22px 22px;
+  border-radius:12px;padding:7px;
+  border:1px solid rgba(200,145,74,.35);
+  /* overlay ámbar como el juego (0xC8914A @ 0.22) */
+  box-shadow:inset 0 0 0 2px rgba(200,145,74,.18);
+}
+/* Caja: cuadrada, igual que en el juego */
+.bxcard{position:relative;border-radius:12px;cursor:grab;user-select:none;aspect-ratio:1/1;overflow:hidden;transition:transform .12s,box-shadow .12s}
+.bxcard:hover{transform:translateY(-2px);box-shadow:0 5px 14px rgba(0,0,0,.45)}
+.bxcard.dragging{opacity:.3;transform:scale(.9);cursor:grabbing}
+.bxcard.dragover{outline:3px solid #4b96f5;outline-offset:2px}
+/* Canvas: rellena la caja con el cubo del juego */
+.bxcvs{position:absolute;top:0;left:0;width:100%;height:100%;display:block;pointer-events:none}
+/* Overlay principal: centra el input del número */
+.bxcard-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+/* Hover overlay: ✕ top-right, badge BFS top-left */
+.bxcard-top{position:absolute;top:3px;left:3px;right:3px;display:flex;justify-content:space-between;align-items:flex-start;opacity:0;pointer-events:none;transition:opacity .15s}
+.bxcard:hover .bxcard-top{opacity:1;pointer-events:auto}
+/* Botón ✕ en esquina superior derecha */
+.bxcard-del{background:rgba(0,0,0,.35);border:none;font-size:9px;cursor:pointer;color:rgba(255,255,255,.9);padding:2px 4px;border-radius:4px;line-height:1;transition:all .12s;font-weight:700}
+.bxcard-del:hover{background:rgba(239,68,68,.8);color:#fff}
+/* ── Contador de colores ──────────────────────────────────── */
+.cc-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;min-height:14px}
+.cc-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;border:1px solid rgba(0,0,0,.2)}
+.cc-bar-wrap{flex:1;height:7px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.cc-bar{height:100%;border-radius:3px;transition:width .25s}
+.cc-stat{font-size:10px;font-weight:700;min-width:36px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+/* Centro: solo el input (transparente = número en canvas; blanco al editar) */
+.bxcard-mid{display:flex;align-items:center;justify-content:center;width:88%;background:transparent}
+input[type=number].bxcard-n,input[type=number].bxcard-n:hover,input[type=number].bxcard-n:active{
+  width:100%;background-color:rgba(0,0,0,0)!important;background-image:none!important;
+  border:0!important;border-radius:0!important;box-shadow:none!important;outline:0!important;
+  font-size:22px;font-weight:800;color:transparent;caret-color:#fff;
+  text-align:center;padding:0;margin:0;cursor:text;line-height:1;
+  -webkit-appearance:none!important;-moz-appearance:textfield!important;appearance:none!important;
+  color-scheme:unset}
+input[type=number].bxcard-n::-webkit-inner-spin-button,
+input[type=number].bxcard-n::-webkit-outer-spin-button{-webkit-appearance:none!important;display:none;margin:0}
+input[type=number].bxcard-n::-webkit-input-placeholder{color:transparent}
+input[type=number].bxcard-n:focus{
+  color:#fff!important;text-shadow:0 1px 4px rgba(0,0,0,.9);
+  background-color:rgba(0,0,0,0)!important;background-image:none!important;
+  border:0!important;outline:0!important;box-shadow:none!important}
+.bxcard-ant{display:none}
+/* Nº de orden de desbloqueo — esquina inferior-izquierda, siempre visible */
+.bxord{position:absolute;left:3px;bottom:3px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;
+  background:rgba(20,16,10,.78);color:#ffd86b;font-size:9.5px;font-weight:800;line-height:16px;text-align:center;
+  border:1px solid rgba(255,216,107,.55);cursor:pointer;z-index:2;user-select:none}
+.bxord:hover{background:#ffd86b;color:#1a1208}
+/* Celda + (añadir caja): beige ámbar como el fondo del juego */
+.bxcard-add{background:rgba(200,145,74,.14);border:2px dashed rgba(200,145,74,.55);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;aspect-ratio:1/1;cursor:pointer;transition:border-color .12s,background .12s;color:rgba(100,60,20,.55)}
+.bxcard-add:hover{border-color:rgba(200,145,74,.85);background:rgba(200,145,74,.26)}
 
 /* ── Main ─────────────────────────────────────────── */
 .main{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:18px;gap:18px}
@@ -90,8 +186,27 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 .zbts{display:flex;gap:4px}
 .zbt{width:27px;height:23px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .zbt:hover{background:var(--border)}
-#gc{display:block;border-radius:6px;cursor:crosshair;image-rendering:pixelated;image-rendering:crisp-edges}
+/* Canvas del tablero — marco igual al juego: borde dorado #C8A060 + cuerpo crema #F2E8CC */
+#gc{display:block;border-radius:4px;cursor:crosshair;image-rendering:pixelated;image-rendering:crisp-edges}
+.gframe{display:inline-block;padding:12px;background:#F2E8CC;border-radius:16px;
+        box-shadow:0 0 0 4px #C8A060,0 6px 18px rgba(0,0,0,.35)}
 
+/* ── Cards de acción rápida (sidebar izquierdo, tope) ─ */
+.qcards{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:2px}
+.qcard{border:2px solid transparent;border-radius:10px;padding:9px 6px 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all .15s;background:transparent;font-family:inherit;width:100%;text-align:center}
+.qcard-ico{font-size:22px;line-height:1}
+.qcard-lbl{font-size:10.5px;font-weight:700;line-height:1.2}
+.qcard-sub{font-size:9px;opacity:.7;line-height:1.2}
+.qcard.new{border-color:rgba(75,150,245,.35);color:var(--accent)}
+.qcard.new:hover,.qcard.new.open{background:rgba(75,150,245,.1);border-color:var(--accent)}
+.qcard.edit{border-color:rgba(251,146,60,.35);color:#fb923c}
+.qcard.edit:hover,.qcard.edit.open{background:rgba(251,146,60,.1);border-color:#fb923c}
+/* Panel expandible debajo de las cards */
+.qpanel{display:none;margin-top:7px;padding:8px;border-radius:8px;border:1px solid}
+.qpanel.new{background:rgba(75,150,245,.05);border-color:rgba(75,150,245,.22)}
+.qpanel.edit{background:rgba(251,146,60,.05);border-color:rgba(251,146,60,.22)}
+.qlvl-btn{display:block;width:100%;text-align:left;background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.25);border-radius:6px;color:#fb923c;font-size:10.5px;font-weight:600;cursor:pointer;padding:6px 8px;margin-bottom:4px;transition:background .12s;font-family:inherit}
+.qlvl-btn:hover{background:rgba(251,146,60,.18)}
 /* Code panel */
 .cpanel{width:100%;max-width:840px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .cphead{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)}
@@ -112,7 +227,7 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 
 <header>
   <span style="font-size:20px">🐜</span>
-  <h1>Colony Flow — Editor de Niveles</h1>
+  <h1>Bachacos — Editor de Niveles</h1>
   <span class="badge">MIYUKI GENERATOR</span>
 </header>
 
@@ -120,6 +235,112 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 
 <!-- ── SIDEBAR ───────────────────────────────────────── -->
 <aside class="sidebar">
+
+  <!-- ── Niveles: selector de niveles del juego + Nuevo nivel / Editar nivel ── -->
+  <div class="sec" style="padding-bottom:10px">
+    <div class="sec-t">🎮 Niveles</div>
+
+    <!-- 1) Nuevo nivel (ancho completo) -->
+    <button class="btn btn-p" style="width:100%" onclick="toggleQPanel('new')">✨ Nuevo nivel</button>
+
+    <!-- Panel: Nuevo nivel (dimensiones del lienzo vacío) -->
+    <div class="qpanel new" id="qPanelNew">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <div>
+          <div class="clbl">Columnas <b id="qncV">30</b></div>
+          <input type="number" id="qNewCols" value="30" min="5" max="80"
+            oninput="document.getElementById('qncV').textContent=this.value||30"
+            style="width:100%">
+        </div>
+        <div>
+          <div class="clbl">Filas <b id="qnrV">30</b></div>
+          <input type="number" id="qNewRows" value="30" min="5" max="80"
+            oninput="document.getElementById('qnrV').textContent=this.value||30"
+            style="width:100%">
+        </div>
+      </div>
+      <button class="btn btn-p" style="width:100%" onclick="quickCreateNew()">✨ Crear nivel vacío</button>
+    </div>
+
+    <!-- 2) Select con los niveles actuales del juego (se llena desde src/data/LevelData.js) -->
+    <div id="qLevelPick" style="margin-top:8px">
+      <div class="clbl" style="margin-bottom:4px">Niveles actuales del juego</div>
+      <select id="qLevelSelect" onchange="onLevelPicked()"
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:12px;font-family:inherit">
+        <option value="">— Elige un nivel —</option>
+      </select>
+    </div>
+    <div id="qLevelLoading" style="font-size:10px;color:var(--dim);margin:6px 0">Buscando niveles del juego…</div>
+
+    <!-- 3) Editar nivel (ancho completo, debajo del select) -->
+    <button class="btn btn-p" id="btnEditLevel" style="width:100%;margin-top:6px"
+      onclick="loadPickedLevel()" disabled>📥 Cargar nivel</button>
+
+    <!-- 4) Guardar nivel: se habilita al cargar un nivel; guarda cubos, colores y cajas en el juego -->
+    <button class="btn btn-p" id="btnSaveLoaded" style="width:100%;margin-top:6px"
+      onclick="saveLoadedLevel()" disabled title="Guarda los cambios del nivel cargado en el juego (src/data/LevelData.js)">💾 Guardar nivel</button>
+    <div id="loadedLevelInfo" style="font-size:10px;color:var(--dim);margin-top:5px;min-height:12px"></div>
+
+    <button class="btn btn-o" style="margin-top:6px;font-size:11px;border-color:rgba(251,146,60,.5);color:#fb923c"
+      onclick="loadGameLevelFileQ()" title="Abrir un LevelData.js y elegir un nivel de ese archivo">
+      📂 Abrir otro LevelData.js…
+    </button>
+  </div>
+
+  <!-- Datos del nivel -->
+  <div class="sec">
+    <div class="sec-t">⚙️ Datos del nivel</div>
+    <div class="ctrl">
+      <div class="clbl">Nombre del nivel</div>
+      <input type="text" id="lvlName" value="Nivel 1" placeholder="Nombre…">
+    </div>
+    <div class="ctrl row2">
+      <div>
+        <div class="clbl">Filas</div>
+        <input type="number" id="lvlRows" value="30" min="5" max="80" onchange="applyLevelSize()">
+      </div>
+      <div>
+        <div class="clbl">Columnas</div>
+        <input type="number" id="lvlCols" value="30" min="5" max="80" onchange="applyLevelSize()">
+      </div>
+    </div>
+    <div class="ctrl row2">
+      <div>
+        <div class="clbl">Celda en juego (px)</div>
+        <input type="number" id="cellSz" value="12" min="4" max="24">
+      </div>
+      <div>
+        <div class="clbl">Columnas de cajas</div>
+        <input type="number" id="boxCols" value="4" min="2" max="6" onchange="renderBoxPanel()">
+      </div>
+    </div>
+    <input type="hidden" id="holeGap" value="70">
+  </div>
+
+  <!-- Herramientas + Paleta -->
+  <div class="sec">
+    <div class="sec-t">🖊️ Herramientas</div>
+    <div class="tools">
+      <button class="tool on" id="tPaint" onclick="setTool('paint')">🖊️<span>Pintar</span></button>
+      <button class="tool"    id="tErase" onclick="setTool('erase')">⬜<span>Borrar</span></button>
+      <button class="tool"    id="tFill"  onclick="setTool('fill')">🪣<span>Rellenar</span></button>
+      <button class="tool"    id="tPick"  onclick="setTool('pick')">💉<span>Picker</span></button>
+    </div>
+    <div class="clbl" style="margin-top:10px;margin-bottom:4px">🎨 Paleta de colores
+      <span style="font-weight:400;opacity:.7">· nº de cajas por color</span></div>
+    <div class="palscroll"><div id="palList"></div></div>
+    <button class="btn btn-o" style="margin-top:8px;font-size:11px" onclick="addColor()">+ Añadir color</button>
+    <button class="btn btn-p" style="margin-top:6px" onclick="generateBoxesFromPalette()"
+      title="Crea en el panel de cajas la cantidad de cajas indicada para cada color">📦 Generar cajas</button>
+    <p style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.65">
+      Clic izquierdo: aplicar herramienta<br>
+      <b style="color:var(--accent)">Clic derecho: seleccionar color</b><br>
+      <b style="color:#ffd700">Ctrl+Clic: seleccionar región conectada</b><br>
+      → clic izq. o <b>Enter</b> aplica el color activo<br>
+      Scroll: arriba/abajo · <b>Ctrl+Scroll</b>: izq./der. · <b>Alt+Scroll</b>: zoom<br>
+      Ctrl+Z: deshacer · Esc: deseleccionar
+    </p>
+  </div>
 
   <!-- Upload -->
   <div class="sec">
@@ -132,27 +353,22 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
     <img id="thumb" alt="preview">
   </div>
 
-  <!-- Level info -->
+  <!-- Nuevo diseño -->
   <div class="sec">
-    <div class="sec-t">⚙️ Datos del nivel</div>
-    <div class="ctrl">
-      <div class="clbl">Nombre del nivel</div>
-      <input type="text" id="lvlName" value="Nivel 1" placeholder="Nombre…">
-    </div>
-    <div class="ctrl">
-      <div class="clbl">Tamaño de celda en juego (px)</div>
-      <input type="number" id="cellSz" value="12" min="4" max="24">
-    </div>
+    <div class="sec-t">✨ Nuevo diseño</div>
     <div class="ctrl row2">
       <div>
-        <div class="clbl">BoxCols</div>
-        <input type="number" id="boxCols" value="4" min="2" max="6">
+        <div class="clbl">Columnas <b id="ncV">30</b></div>
+        <input type="number" id="newCols" value="30" min="5" max="80"
+          oninput="document.getElementById('ncV').textContent=this.value||30">
       </div>
       <div>
-        <div class="clbl">holeGap</div>
-        <input type="number" id="holeGap" value="70" min="20" max="120">
+        <div class="clbl">Filas <b id="nrV">30</b></div>
+        <input type="number" id="newRows" value="30" min="5" max="80"
+          oninput="document.getElementById('nrV').textContent=this.value||30">
       </div>
     </div>
+    <button class="btn btn-p" onclick="createNewDesign()">✨ Crear lienzo vacío</button>
   </div>
 
   <!-- Grid settings -->
@@ -179,32 +395,6 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
     <button class="btn btn-p" onclick="processImage()">⚡ Procesar imagen</button>
   </div>
 
-  <!-- Tools -->
-  <div class="sec">
-    <div class="sec-t">🖊️ Herramientas</div>
-    <div class="tools">
-      <button class="tool on" id="tPaint" onclick="setTool('paint')">🖊️<span>Pintar</span></button>
-      <button class="tool"    id="tErase" onclick="setTool('erase')">⬜<span>Borrar</span></button>
-      <button class="tool"    id="tFill"  onclick="setTool('fill')">🪣<span>Rellenar</span></button>
-      <button class="tool"    id="tPick"  onclick="setTool('pick')">💉<span>Picker</span></button>
-    </div>
-    <p style="font-size:10px;color:var(--dim);margin-top:7px;line-height:1.65">
-      Clic izquierdo: aplicar herramienta<br>
-      <b style="color:var(--accent)">Clic derecho: seleccionar color</b><br>
-      <b style="color:#ffd700">Ctrl+Clic: seleccionar región conectada</b><br>
-      → clic izq. o <b>Enter</b> aplica el color activo<br>
-      Scroll: arriba/abajo · <b>Ctrl+Scroll</b>: izq./der. · <b>Alt+Scroll</b>: zoom<br>
-      Ctrl+Z: deshacer · Esc: deseleccionar
-    </p>
-  </div>
-
-  <!-- Palette -->
-  <div class="sec" style="flex:1">
-    <div class="sec-t">🎨 Paleta de colores</div>
-    <div class="palscroll"><div id="palList"></div></div>
-    <button class="btn btn-o" style="margin-top:8px;font-size:11px" onclick="addColor()">+ Añadir color</button>
-  </div>
-
   <!-- Save / Load -->
   <div class="sec">
     <div class="sec-t">💾 Guardar / Cargar</div>
@@ -216,11 +406,24 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
     <button class="btn btn-o" style="font-size:10px;padding:5px" onclick="clearAutoSave()">🗑 Borrar auto-guardado</button>
   </div>
 
-  <!-- Export -->
+  <!-- Export / Guardar nivel -->
   <div class="sec">
-    <div class="sec-t">📤 Exportar código JS</div>
-    <button class="btn btn-g" style="margin-bottom:6px" onclick="saveAsJS()" title="Genera el código y lo descarga como archivo .js">
-      💾 Guardar diseño (.js)
+    <div class="sec-t">💾 Guardar nivel</div>
+    <div class="ctrl row2" style="margin-bottom:6px">
+      <div>
+        <div class="clbl">Destino</div>
+        <select id="saveMode" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:11px;font-family:inherit" onchange="updateSaveUI()">
+          <option value="game">🎮 Nivel del juego</option>
+          <option value="js">📄 Archivo .js</option>
+        </select>
+      </div>
+      <div>
+        <div class="clbl">Nº de nivel <span id="saveLevelState" style="font-weight:400;opacity:.7"></span></div>
+        <select id="saveLevelNum" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:11px;font-family:inherit" onchange="updateSaveUI()"></select>
+      </div>
+    </div>
+    <button class="btn btn-g" id="saveLevelBtn" style="margin-bottom:6px" onclick="saveLevel()" title="Guarda el nivel en src/data/LevelData.js o lo descarga como .js">
+      💾 Guardar en Nivel 1
     </button>
     <div class="brow">
       <button class="btn btn-o" onclick="genCode()" title="Genera el código y lo muestra abajo">📋 Previsualizar</button>
@@ -238,7 +441,12 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 
   <div class="empty" id="emptyState">
     <div class="eico">🐜</div>
-    <p>Sube una imagen para comenzar<br>a diseñar tu nivel al estilo Miyuki</p>
+    <p>Sube una imagen · crea un lienzo vacío<br>o carga un nivel del juego para empezar</p>
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-p" style="font-size:11px;padding:6px 14px" onclick="document.getElementById('fileIn').click()">🖼️ Subir imagen</button>
+      <button class="btn btn-o" style="font-size:11px;padding:6px 14px" onclick="createNewDesign()">✨ Lienzo vacío</button>
+      <button class="btn btn-o" style="font-size:11px;padding:6px 14px" onclick="loadGameLevelFile()">🎮 Cargar nivel</button>
+    </div>
   </div>
 
   <div id="editorArea" style="display:none;width:100%;flex-direction:column;align-items:center;gap:18px">
@@ -250,7 +458,7 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
           <button class="zbt" onclick="doZoom(2)"  title="Acercar">+</button>
         </div>
       </div>
-      <canvas id="gc"></canvas>
+      <div class="gframe"><canvas id="gc"></canvas></div>
     </div>
 
     <div class="cpanel" id="cpanel" style="display:none">
@@ -263,6 +471,43 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
   </div>
 
 </main>
+
+<!-- ── SIDEBAR DERECHO: Gestión de Cajas de Hormigas ───── -->
+<aside class="rsidebar">
+  <div class="sec">
+    <div class="sec-t">🐜 Cajas de Hormigas</div>
+    <div id="bxStats" style="font-size:10px;color:var(--dim);margin-bottom:8px;line-height:1.6">
+      Carga un diseño para gestionar las cajas
+    </div>
+    <!-- Dificultad + Regenerar -->
+    <div class="ctrl" style="margin-bottom:6px">
+      <div class="clbl">Dificultad de regeneración</div>
+      <select id="genDiff" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:11px;font-family:inherit">
+        <option value="low">🟢 Bajo — secciones inferiores primero, 4 caminos</option>
+        <option value="mid">🟡 Medio — 3 caminos posibles</option>
+        <option value="high">🟠 Alto — 2 caminos posibles</option>
+        <option value="super">🔴 Súper Hard — 1 solo camino</option>
+      </select>
+    </div>
+    <div class="brow" style="margin-bottom:5px">
+      <button class="btn btn-p" onclick="reorderBoxes()" title="Mantiene las cajas actuales (colores y hormigas) y las reubica en las columnas para que el nivel tenga tantas estrategias viables como indica la dificultad">🧩 Reordenar</button>
+      <button class="btn btn-o" onclick="regenerateBoxes()" title="Crea las cajas desde cero simulando el desbloqueo del dibujo y las distribuye según la dificultad">🔄 Regenerar</button>
+    </div>
+    <button class="btn btn-o" style="margin-bottom:5px;font-size:11px" onclick="evalCurrentLayout()" title="Calcula el % de éxito de la distribución actual de cajas">📊 % éxito actual</button>
+    <!-- % de éxito por dificultad -->
+    <div id="diffStats" style="font-size:10px;color:var(--dim);line-height:1.7;background:var(--surface2);border-radius:6px;padding:6px 8px;border:1px solid var(--border)">
+      Pulsa <b>Regenerar</b> para ver el % de éxito de cada dificultad.
+    </div>
+  </div>
+
+  <div class="sec" style="flex:1;overflow-y:auto;padding:6px 8px">
+    <div id="bxTable">
+      <div style="font-size:11px;color:var(--dim);text-align:center;padding:20px 0">
+        Carga un diseño para ver las cajas
+      </div>
+    </div>
+  </div>
+</aside>
 </div>
 
 <div class="toast" id="toast">✅ Copiado al portapapeles</div>
@@ -278,6 +523,10 @@ let cz=16;                    // display px per cell
 let isDown=false;
 let undo=[];
 let selection=new Set();      // Set of "r,c" strings — Ctrl+Click region
+let boxes=[];                 // [{uid,colorId,n,diff}] — Cajas en el panel derecho
+let _bxUid=0;                 // Contador de UIDs únicos para cajas
+let bfsResult=null;           // Map<colorId,layer> | null — Resultado del análisis BFS
+let showHeatmap=false;        // true = mostrar capa de mapa de calor sobre el canvas
 
 const canvas=document.getElementById('gc');
 const ctx=canvas.getContext('2d',{alpha:false});
@@ -434,6 +683,7 @@ function processImage(){
   undo=[];selection.clear();
   updatePal();
   render();
+  buildBoxes(true);   // recalcular cajas desde la nueva paleta
 }
 
 // ── Color helpers ──────────────────────────────────────────────────────────────
@@ -447,8 +697,13 @@ function cntCell(id){let n=0;for(const row of grid)for(const v of row)if(v===id)
 function updatePal(){
   const list=document.getElementById('palList');
   list.innerHTML='';
-  for(const p of pal){
-    const cnt=cntCell(p.id);
+  // Orden de la paleta: por cantidad de cubos, de mayor a menor (empate → id)
+  const counts=new Map(pal.map(p=>[p.id,cntCell(p.id)]));
+  const sorted=[...pal].sort((a,b)=>counts.get(b.id)-counts.get(a.id)||a.id-b.id);
+  let rank=0;
+  for(const p of sorted){
+    const cnt=counts.get(p.id);
+    rank++;
     const el=document.createElement('div');
     el.className='pi'+(p.id===selId?' sel':'');
     el.dataset.id=p.id;
@@ -462,11 +717,19 @@ function updatePal(){
         }
         selection.clear();
         render();updatePal();
+        showToast(`🎨 Color #${p.id} aplicado a la selección`);
+      } else if(p.id===selId){
+        // Segundo clic sobre el color ya activo → seleccionar todas sus celdas
+        selectCellsOfColor(p.id);
       } else {
         selId=p.id;updatePal();
       }
     });
+    // Nº de cajas deseado: el configurado (p.boxCount) o, si no, las cajas actuales de ese color
+    const curBoxes=boxes.filter(b=>b.colorId===p.id).length;
+    const nBoxes=Number.isInteger(p.boxCount)?p.boxCount:(curBoxes||Math.ceil(cnt/BOX_MAX_ANTS));
     el.innerHTML=`
+      <span class="pid" title="Color id #${p.id}">#${rank}</span>
       <div class="psw" style="background:${p.hex}">
         <input type="color" value="${p.hex}" data-id="${p.id}">
       </div>
@@ -474,10 +737,28 @@ function updatePal(){
         <div class="pcnt">${cnt} celdas</div>
         <div class="phex">${p.hex}</div>
       </div>
-      <span class="pid">#${p.id}</span>
+      <label class="pbox" title="Nº de cajas en que se reparten las ${cnt} celdas de este color. Pulsa «Generar cajas» para aplicarlo.">
+        📦<input type="number" class="pboxn" data-id="${p.id}" value="${nBoxes}" min="0" max="99">
+      </label>
+      <button class="psel" data-id="${p.id}" title="Seleccionar en el dibujo todas las celdas de este color">◎</button>
       <button class="pdel" data-id="${p.id}">✕</button>
     `;
     list.appendChild(el);
+
+    el.querySelector('.psel').addEventListener('click',ev=>{
+      ev.stopPropagation();
+      selectCellsOfColor(+ev.target.dataset.id);
+    });
+    // Nº de cajas por color: se guarda y se aplica con «Generar cajas»
+    const nb=el.querySelector('.pboxn');
+    nb.addEventListener('click',e=>e.stopPropagation());
+    nb.addEventListener('mousedown',e=>e.stopPropagation());
+    nb.addEventListener('change',ev=>{
+      ev.stopPropagation();
+      const pp=pal.find(x=>x.id===+ev.target.dataset.id);
+      if(pp)pp.boxCount=Math.max(0,parseInt(ev.target.value,10)||0);
+      scheduleAutoSave();
+    });
 
     el.querySelector('input[type=color]').addEventListener('change',ev=>{
       ev.stopPropagation();
@@ -491,10 +772,82 @@ function updatePal(){
       const pid=+ev.target.dataset.id;
       for(let r=0;r<gRows;r++)for(let c=0;c<gCols;c++)if(grid[r][c]===pid)grid[r][c]=0;
       pal=pal.filter(x=>x.id!==pid);
+      boxes=boxes.filter(b=>b.colorId!==pid);  // eliminar cajas de este color
       updatePal();render();
     });
   }
+  renderBoxPanel();
   updInfo();
+}
+
+// Reparte las celdas de un color en `n` cajas (lo más iguales posible, máx 99 hormigas
+// por caja). Sustituye las cajas existentes de ese color. Devuelve el nº real creado.
+// Con quiet=true no redibuja ni avisa (uso en lote desde «Generar cajas»).
+function setColorBoxCount(pid,n,quiet=false){
+  const cells=cntCell(pid);
+  if(!Number.isInteger(n)||n<0)n=0;
+  if(n>0&&cells===0){if(!quiet)showToast('⚠ Ese color no tiene celdas en el dibujo');n=0;}
+  const minBoxes=Math.ceil(cells/BOX_MAX_ANTS);
+  if(n>0&&n<minBoxes){n=minBoxes;if(!quiet)showToast(`ℹ Se necesitan al menos ${minBoxes} cajas (máx ${BOX_MAX_ANTS} hormigas por caja)`);}
+  if(n>cells)n=cells;
+  boxes=boxes.filter(b=>b.colorId!==pid);
+  if(n>0){
+    const base=Math.floor(cells/n),extra=cells%n;
+    let order=nextBoxOrder();
+    for(let i=0;i<n;i++){
+      boxes.push({uid:++_bxUid,colorId:pid,n:base+(i<extra?1:0),diff:'normal',order:order++});
+    }
+  }
+  const pp=pal.find(x=>x.id===pid); if(pp)pp.boxCount=n;
+  if(!quiet){
+    bfsResult=null;
+    renderBoxPanel();          // posiciona las nuevas cajas en celdas libres y redibuja
+    updatePal();
+    scheduleAutoSave();
+  }
+  return n;
+}
+
+// «Generar cajas»: crea para cada color la cantidad de cajas indicada en la paleta
+// (si no se indicó, el mínimo necesario). Las cajas se ordenan por color de mayor a
+// menor nº de cubos y se numeran en ese orden.
+function generateBoxesFromPalette(){
+  if(!grid.length){showToast('⚠ Carga o crea un nivel primero');return;}
+  const counts=new Map(pal.map(p=>[p.id,cntCell(p.id)]));
+  const sorted=[...pal].filter(p=>counts.get(p.id)>0).sort((a,b)=>counts.get(b.id)-counts.get(a.id)||a.id-b.id);
+  if(!sorted.length){showToast('⚠ El dibujo no tiene cubos');return;}
+  boxes=[];
+  let total=0;
+  for(const p of sorted){
+    const want=Number.isInteger(p.boxCount)?p.boxCount:Math.ceil(counts.get(p.id)/BOX_MAX_ANTS);
+    total+=setColorBoxCount(p.id,Math.max(1,want),true);
+  }
+  // Numeración consecutiva en el orden generado
+  boxes.forEach((b,i)=>b.order=i+1);
+  bfsResult=null;
+  renderBoxPanel();
+  updatePal();
+  scheduleAutoSave();
+  showToast(`📦 ${total} cajas generadas para ${sorted.length} colores`);
+}
+
+// Selecciona en el dibujo todas las celdas de un color de la paleta.
+// Si ya estaban todas seleccionadas (y nada más), la segunda vez deselecciona.
+// Con la selección activa: clic en otro color de la paleta / clic izq. / Enter → recolorea.
+function selectCellsOfColor(pid){
+  const cells=[];
+  for(let r=0;r<gRows;r++)for(let c=0;c<gCols;c++)if(grid[r][c]===pid)cells.push(r+','+c);
+  if(!cells.length){showToast('⚠ Ese color no tiene celdas en el dibujo');return;}
+  const alreadyAll=selection.size===cells.length&&cells.every(k=>selection.has(k));
+  selection.clear();
+  if(alreadyAll){
+    render();updatePal();
+    return;
+  }
+  for(const k of cells)selection.add(k);
+  selId=pid;
+  render();updatePal();
+  showToast(`◎ ${cells.length} celdas del color #${pid} seleccionadas — elige otro color de la paleta para recolorearlas (Esc cancela)`);
 }
 
 function updInfo(){
@@ -517,33 +870,75 @@ function setTool(t){
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
+// ── Cubo del tablero — réplica exacta de GameScene.drawCube ───────────────────
+// Luz desde arriba-derecha, cara redondeada, profundidad 3 px, especular y borde.
+function drawGameCube(c2, x, y, size, rgb){
+  const fw=size, fh=size, DEPTH=3;
+  const rad = size>=10?3:2;
+  const e   = size>=10?2:1;
+  const base=`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+
+  // Cara de profundidad (3 px bajo la cara frontal, esquinas inferiores redondeadas)
+  c2.fillStyle=darkenHex(rgb,68);
+  canvasRoundRect(c2,x,y+fh-1,fw,DEPTH+1,{tl:0,tr:0,bl:rad,br:rad}); c2.fill();
+
+  // Cara frontal redondeada
+  c2.fillStyle=base;
+  canvasRoundRect(c2,x,y,fw,fh,rad); c2.fill();
+
+  if(size>=8){
+    c2.fillStyle=lightenHex(rgb,58);  c2.fillRect(x+e, y+1, fw-e*2, e);           // superior (luz)
+    c2.fillStyle=lightenHex(rgb,28);  c2.fillRect(x+fw-e, y+e, e-1, fh-e*2);      // derecha (luz)
+    c2.fillStyle=darkenHex(rgb,38);   c2.fillRect(x+1, y+e, e-1, fh-e*2);         // izquierda (sombra)
+    c2.fillStyle=darkenHex(rgb,62);   c2.fillRect(x+e, y+fh-e, fw-e*2, e-1);      // inferior (sombra)
+    // Especular en esquina superior-derecha
+    c2.fillStyle='rgba(255,255,255,.82)'; c2.fillRect(x+fw-e-1, y+1, 1, 1);
+    c2.fillStyle='rgba(255,255,255,.42)'; c2.fillRect(x+fw-e-2, y+1, 1, 1);
+    c2.fillStyle='rgba(255,255,255,.42)'; c2.fillRect(x+fw-e-1, y+2, 1, 1);
+    // Borde exterior redondeado
+    c2.strokeStyle='rgba(0,0,0,.45)'; c2.lineWidth=1;
+    canvasRoundRect(c2,x+.5,y+.5,fw-1,fh-1,rad); c2.stroke();
+  } else {
+    c2.strokeStyle='rgba(0,0,0,.45)'; c2.lineWidth=1;
+    c2.strokeRect(x+.5,y+.5,fw-1,fh-1);
+  }
+}
+
 function render(){
   canvas.width=gCols*cz;canvas.height=gRows*cz;
+  syncLevelSizeInputs();
+  // Fondo: mismo crema del tablero del juego (0xF2E8CC) con rejilla sutil
+  ctx.fillStyle='#F2E8CC';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(cz>=6){
+    ctx.strokeStyle='rgba(120,90,40,.12)';ctx.lineWidth=1;
+    for(let c=1;c<gCols;c++){ctx.beginPath();ctx.moveTo(c*cz+.5,0);ctx.lineTo(c*cz+.5,canvas.height);ctx.stroke();}
+    for(let r=1;r<gRows;r++){ctx.beginPath();ctx.moveTo(0,r*cz+.5);ctx.lineTo(canvas.width,r*cz+.5);ctx.stroke();}
+  }
+  // 1) Sombras proyectadas (4 px) en la celda vacía bajo cada cubo — igual que shadowGfx
+  ctx.fillStyle='rgba(0,0,0,.25)';
   for(let r=0;r<gRows;r++){
     for(let c=0;c<gCols;c++){
       const id=grid[r]?.[c]??0;
-      const x=c*cz,y=r*cz;
-      if(id===0){
-        ctx.fillStyle=(r+c)%2===0?'#181b2c':'#111426';
-        ctx.fillRect(x,y,cz,cz);
-      } else {
-        const p=pal.find(p=>p.id===id);
-        if(!p)continue;
-        ctx.fillStyle=p.hex;
-        ctx.fillRect(x,y,cz,cz);
-        if(cz>=10){
-          ctx.fillStyle='rgba(255,255,255,.20)';
-          ctx.fillRect(x,y,cz,2);ctx.fillRect(x,y+2,2,cz-2);
-          ctx.fillStyle='rgba(0,0,0,.28)';
-          ctx.fillRect(x,y+cz-2,cz,2);ctx.fillRect(x+cz-2,y,2,cz-2);
-        }
-      }
-      if(cz>=5){
-        ctx.strokeStyle='rgba(0,0,0,.22)';ctx.lineWidth=.5;
-        ctx.strokeRect(x+.25,y+.25,cz-.5,cz-.5);
+      if(id===0)continue;
+      if(r+1<gRows&&(grid[r+1]?.[c]??0)===0){
+        ctx.fillRect(c*cz+1,(r+1)*cz,cz-2,Math.min(4,Math.max(1,Math.round(cz/3))));
       }
     }
   }
+  // 2) Cubos (top→bottom: la fila siguiente tapa la profundidad de la anterior)
+  for(let r=0;r<gRows;r++){
+    for(let c=0;c<gCols;c++){
+      const id=grid[r]?.[c]??0;
+      if(id===0)continue;
+      const p=pal.find(p=>p.id===id);
+      if(!p)continue;
+      drawGameCube(ctx,c*cz,r*cz,cz,p.rgb);
+    }
+  }
+  // ── Mapa de calor (orden de liberación de celdas) ────────────────────────
+  if(showHeatmap&&boxes.length)drawHeatmap();
+
   // ── Dibujar selección (highlight + borde exterior) ──────────────────────
   if(selection.size>0){
     // Relleno semitransparente
@@ -720,8 +1115,16 @@ document.addEventListener('keydown',e=>{
 });
 
 // ── Export ─────────────────────────────────────────────────────────────────────
-function genCode(){
-  const name=document.getElementById('lvlName').value.trim()||'Nivel 1';
+// Número de nivel seleccionado para guardar (select 1..100)
+function currentLevelNum(){
+  const el=document.getElementById('saveLevelNum');
+  const n=parseInt(el?.value,10);
+  return (n>=1&&n<=100)?n:1;
+}
+
+function genCode(levelNum){
+  const lvlNum=Number.isInteger(levelNum)?levelNum:currentLevelNum();
+  const name=document.getElementById('lvlName').value.trim()||`Nivel ${lvlNum}`;
   const cpx=+document.getElementById('cellSz').value||12;
   const bc=+document.getElementById('boxCols').value||4;
   const hg=+document.getElementById('holeGap').value||70;
@@ -732,13 +1135,16 @@ function genCode(){
   const cnts={};
   for(const p of up)cnts[p.id]=0;
   for(const row of grid)for(const v of row)if(cnts[v]!=null)cnts[v]++;
-  const boxes=up.map(p=>({id:p.id,n:cnts[p.id]})).sort((a,b)=>b.n-a.n);
+  // Usar cajas del panel (ordenadas por posición fila/columna); si no hay, generar automáticamente
+  const exportBoxes=(boxes&&boxes.length>0)
+    ?boxesByPosition()
+    :up.map((p,i)=>({colorId:p.id,n:cnts[p.id],diff:'normal',col:i%bc,row:Math.floor(i/bc)})).sort((a,b)=>b.n-a.n);
 
-  let s=`// ── Level 1 — "${name}" ${'─'.repeat(Math.max(0,50-name.length))}\n`;
-  s+=`// Pixel-art ${gCols}×${gRows} generado con Colony Flow Editor\n\n`;
-  s+=`export const LEVEL_1 = {\n`;
-  s+=`    id: 1,\n`;
-  s+=`    name: '${name}',\n`;
+  let s=`// ── Level ${lvlNum} — "${name}" ${'─'.repeat(Math.max(0,50-name.length))}\n`;
+  s+=`// Pixel-art ${gCols}×${gRows} generado con Bachacos Editor\n\n`;
+  s+=`export const LEVEL_${lvlNum} = {\n`;
+  s+=`    id: ${lvlNum},\n`;
+  s+=`    name: '${name.replace(/'/g,"\\'")}',\n`;
   s+=`    cols: ${gCols},\n`;
   s+=`    rows: ${gRows},\n`;
   s+=`    cell: ${cpx},\n`;
@@ -750,9 +1156,16 @@ function genCode(){
   s+=`    grid: [\n`;
   for(let r=0;r<gRows;r++)s+=`        [${(grid[r]||[]).join(',')}],\n`;
   s+=`    ],\n\n`;
-  s+=`    // Cajas ordenadas por conteo descendente\n`;
+  s+=`    sortBoxes: false,\n`;
+  s+=`    // Cajas — [colorId, hormigas, columna, fila, ordenDesbloqueo] según el editor (🐜 máx ${BOX_MAX_ANTS} por caja)\n`;
   s+=`    boxes: [\n`;
-  for(const b of boxes)s+=`        [${b.id}, ${b.n}],  // ${pal.find(p=>p.id===b.id)?.hex}\n`;
+  for(const b of exportBoxes){
+    const pid=b.colorId!=null?b.colorId:b.id;
+    const pc=pal.find(p=>p.id===pid);
+    const dn=b.diff&&b.diff!=='normal'?`  // [${b.diff}]`:'';
+    const ord=Number.isInteger(b.order)?`, ${b.order}`:'';
+    s+=`        [${pid}, ${b.n}, ${b.col}, ${b.row}${ord}],  // ${pc?.hex||''}${dn}\n`;
+  }
   s+=`    ],\n`;
   s+=`};\n`;
 
@@ -768,18 +1181,95 @@ function copyCode(){
   navigator.clipboard.writeText(txt).then(()=>showToast('✅ Copiado al portapapeles'));
 }
 
+// ── Guardar nivel: en el juego (LevelData.js vía servidor de desarrollo) o como .js ──
+let _existingLevelIds=[];   // ids presentes en src/data/LevelData.js
+
+// Consulta al servidor de Vite los niveles existentes; si no está disponible,
+// usa los que se hayan parseado al cargar LevelData.js en el editor.
+async function refreshExistingLevels(){
+  try{
+    const res=await fetch(EDITOR_API+'/__editor/levels',{cache:'no-store'});
+    if(res.ok){const j=await res.json();_existingLevelIds=j.ids||[];}
+  }catch(_){
+    _existingLevelIds=(window._parsedLevels||[]).map(l=>l.data.id??parseInt(l.name.replace(/\D/g,''),10)).filter(Number.isInteger);
+  }
+  populateSaveLevelSelect();
+}
+
+// Select 1..100 — los niveles ya existentes se marcan con ● (sobrescribir); el resto con ○ (nuevo)
+function populateSaveLevelSelect(){
+  const sel=document.getElementById('saveLevelNum');
+  if(!sel)return;
+  const prev=parseInt(sel.value,10);
+  const existing=new Set(_existingLevelIds);
+  sel.innerHTML='';
+  for(let n=1;n<=100;n++){
+    const o=document.createElement('option');
+    o.value=n;
+    o.textContent=(existing.has(n)?'● ':'○ ')+`Nivel ${n}`+(existing.has(n)?' (existe)':'');
+    sel.appendChild(o);
+  }
+  // Mantener selección previa; por defecto el primer nº libre
+  const firstFree=[...Array(100)].findIndex((_,i)=>!existing.has(i+1))+1;
+  sel.value=String((prev>=1&&prev<=100)?prev:(firstFree||1));
+  updateSaveUI();
+}
+
+function setSaveLevelNum(n){
+  const sel=document.getElementById('saveLevelNum');
+  if(sel&&n>=1&&n<=100){sel.value=String(n);updateSaveUI();}
+}
+
+function updateSaveUI(){
+  const mode=document.getElementById('saveMode')?.value||'game';
+  const n=currentLevelNum();
+  const exists=_existingLevelIds.includes(n);
+  const btn=document.getElementById('saveLevelBtn');
+  const st=document.getElementById('saveLevelState');
+  if(btn)btn.textContent=mode==='js'?`📄 Descargar nivel_${n}.js`:(exists?`💾 Sobrescribir Nivel ${n}`:`💾 Crear Nivel ${n}`);
+  if(st)st.textContent=exists?'(existe)':'(nuevo)';
+}
+
+async function saveLevel(){
+  if(!grid.length){showToast('⚠ Nada que guardar aún');return;}
+  const mode=document.getElementById('saveMode')?.value||'game';
+  const n=currentLevelNum();
+  if(mode==='js'){saveAsJS();return;}
+
+  // Generar código del nivel n y enviarlo al servidor de desarrollo
+  genCode(n);
+  const code=document.getElementById('cody').textContent;
+  if(!code){showToast('❌ Error al generar el código');return;}
+  const exists=_existingLevelIds.includes(n);
+  if(exists&&!confirm(`El Nivel ${n} ya existe en LevelData.js.\n¿Sobrescribirlo con el diseño actual?`))return;
+  try{
+    const res=await fetch(EDITOR_API+'/__editor/save-level',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:n,code}),
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.ok)throw new Error(j.error||`HTTP ${res.status}`);
+    _existingLevelIds=j.ids||_existingLevelIds;
+    _autoLevelsLoaded=false;            // forzar recarga de los niveles del juego
+    autoLoadGameLevels().catch(()=>{}).then(()=>refreshExistingLevels());
+    setLoadedLevel(n);                  // el nivel guardado pasa a ser el nivel en edición
+    showToast(`✅ Nivel ${n} ${j.action} en src/data/LevelData.js — ya está disponible en el juego`,3600);
+  }catch(e){
+    showToast(`❌ No se pudo guardar en el juego (${e.message}). Abre el editor desde http://localhost:5173/level-editor.html con "npm run dev", o usa "Archivo .js".`,5200);
+  }
+}
+
 function saveAsJS(){
   if(!grid.length){showToast('⚠ Nada que guardar aún');return;}
-  // Asegurar que el código está generado y actualizado
-  genCode();
+  const n=currentLevelNum();
+  // Asegurar que el código está generado y actualizado para el nivel elegido
+  genCode(n);
   const code=document.getElementById('cody').textContent;
   if(!code){showToast('❌ Error al generar el código');return;}
   const blob=new Blob([code],{type:'text/javascript;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  const name=(document.getElementById('lvlName').value.trim()||'nivel')
-    .toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-  a.download=name+'_level.js';
+  a.download=`nivel_${n}.js`;
   a.click();
   URL.revokeObjectURL(a.href);
   showToast('📄 Diseño guardado como ' + a.download);
@@ -806,8 +1296,9 @@ function stateToJSON(){
     boxCols:+document.getElementById('boxCols').value,
     holeGap:+document.getElementById('holeGap').value,
     gRows,gCols,
-    pal:pal.map(p=>({id:p.id,hex:p.hex,rgb:p.rgb})),
+    pal:pal.map(p=>({id:p.id,hex:p.hex,rgb:p.rgb,boxCount:p.boxCount})),
     grid,
+    boxes:boxes.map(b=>({uid:b.uid,colorId:b.colorId,n:b.n,diff:b.diff,col:b.col,row:b.row,order:b.order})),
     ts:Date.now()
   });
 }
@@ -828,7 +1319,15 @@ function stateFromJSON(json){
   document.getElementById('emptyState').style.display='none';
   document.getElementById('editorArea').style.display='flex';
   undo=[];selection.clear();
+  // Restaurar cajas
+  if(d.boxes&&d.boxes.length){
+    boxes=d.boxes.map(b=>({uid:++_bxUid,colorId:b.colorId!=null?b.colorId:b.id,n:b.n||1,diff:b.diff||'normal',col:b.col,row:b.row,order:b.order}));
+  } else {
+    boxes=[];
+  }
+  bfsResult=null;
   updatePal();render();
+  if(!boxes.length)buildBoxes(true);
   return true;
 }
 
@@ -958,14 +1457,1240 @@ function parseAndLoadCode(){
     document.getElementById('emptyState').style.display='none';
     document.getElementById('editorArea').style.display='flex';
     undo=[];selection.clear();
+    // Importar cajas desde el código JS si existen
+    if(d.boxes&&Array.isArray(d.boxes)&&d.boxes.length){
+      boxes=d.boxes.map(b=>{
+        if(Array.isArray(b))return{uid:++_bxUid,colorId:b[0],n:b[1]||1,diff:'normal',col:b[2],row:b[3],order:b[4]};
+        return{uid:++_bxUid,colorId:b.colorId!=null?b.colorId:b.id,n:b.n||b[1]||1,diff:b.diff||'normal',col:b.col,row:b.row};
+      });
+    } else {
+      boxes=[];
+    }
+    bfsResult=null;
     updatePal();render();
+    if(!boxes.length)buildBoxes(true);
     closeCodeModal();
-    showToast(`✅ Diseño cargado: ${gCols}×${gRows} · ${newPal.length} colores`);
+    showToast(`✅ Diseño cargado: ${gCols}×${gRows} · ${newPal.length} colores · ${boxes.length} cajas`);
   }catch(e){
     showToast('❌ Error: '+e.message);
     console.error('parseAndLoadCode:',e);
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Nuevo diseño & Edición de niveles del juego ───────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Acciones rápidas del sidebar superior ────────────────────────────────
+
+// Muestra/oculta el panel "Nuevo nivel" (which='new'); null lo cierra
+function toggleQPanel(which){
+  const p=document.getElementById('qPanelNew');
+  // Abierto = estilo inline 'block' (el estado inicial viene de la clase CSS, sin inline)
+  const open=which==='new'&&p.style.display!=='block';
+  p.style.display=open?'block':'none';
+}
+
+// Habilita "Editar nivel" solo cuando hay un nivel elegido en el select
+function onLevelPicked(){
+  const v=document.getElementById('qLevelSelect')?.value;
+  const btn=document.getElementById('btnEditLevel');
+  if(btn)btn.disabled=!v;
+}
+
+// ── Carga automática de niveles desde src/data/LevelData.js (servido por Vite) ──
+let _autoLevelsLoaded=false;
+// Base del servidor de desarrollo de Vite: vacía si el editor se sirve desde Vite;
+// 'http://localhost:5173' si se abrió como archivo local (file://)
+const EDITOR_API=location.protocol==='file:'?'http://localhost:5173':'';
+async function autoLoadGameLevels(){
+  const loading=document.getElementById('qLevelLoading');
+  if(_autoLevelsLoaded&&window._parsedLevels?.length){ loading.style.display='none'; return; }
+  loading.style.display='block';
+  loading.textContent='Buscando niveles del juego…';
+  // Rutas candidatas: servidor de desarrollo (Vite) — tanto si el editor se sirve desde él
+  // como si se abrió como archivo local — y, como respaldo, el puerto alternativo 5174
+  const candidates=[
+    EDITOR_API+'/src/data/LevelData.js',
+    'http://localhost:5173/src/data/LevelData.js',
+    'http://localhost:5174/src/data/LevelData.js',
+    'http://127.0.0.1:5173/src/data/LevelData.js',
+  ];
+  let txt=null;
+  for(const u of [...new Set(candidates)]){
+    try{
+      const res=await fetch(u,{cache:'no-store'});
+      if(res.ok){ txt=await res.text(); break; }
+    }catch(_){}
+  }
+  if(!txt){
+    loading.innerHTML='⚠ No se pudo conectar con el juego. Ejecuta <b>npm run dev</b> (y reinícialo si ya estaba abierto). '
+      +'<a href="#" onclick="autoLoadGameLevels();return false" style="color:var(--accent)">Reintentar</a>';
+    // Reintento automático cada 3 s hasta que el servidor responda
+    clearTimeout(window._lvlRetry);
+    window._lvlRetry=setTimeout(()=>autoLoadGameLevels().catch(()=>{}),3000);
+    return;
+  }
+  const levels=parseLevelDataFile(txt);
+  if(!levels.length){
+    loading.textContent='LevelData.js no contiene niveles LEVEL_X — usa el botón de abajo.';
+    return;
+  }
+  window._parsedLevels=levels;
+  _autoLevelsLoaded=true;
+  populateLevelPicker(levels);
+  loading.style.display='none';
+}
+
+// Número de nivel de una entrada parseada de LevelData.js
+function levelNumOf(l,i=0){
+  return l.data.id ?? (parseInt((l.name||'').replace(/\D/g,''),10)||i+1);
+}
+
+// Select con SOLO los niveles existentes en el juego (ordenados por número)
+function populateLevelPicker(levels){
+  const sel=document.getElementById('qLevelSelect');
+  if(!sel)return;
+  const prev=sel.value;
+  const sorted=[...levels].map((l,i)=>({l,n:levelNumOf(l,i)})).sort((a,b)=>a.n-b.n);
+  sel.innerHTML='<option value="">— Elige un nivel —</option>'+sorted.map(({l,n})=>
+    `<option value="${n}">Nivel ${n} · ${l.data.cols}×${l.data.rows}</option>`).join('');
+  if(prev&&sorted.some(x=>String(x.n)===prev))sel.value=prev;
+  onLevelPicked();
+}
+
+// Botón "Editar nivel": carga en el tablero el nivel elegido en el select (cubos, cajas,
+// nombre, columnas y paleta del nivel del juego)
+let _loadedLevelNum=null;   // nº del nivel del juego cargado (habilita "Guardar nivel")
+function loadPickedLevel(){
+  const n=parseInt(document.getElementById('qLevelSelect')?.value,10);
+  if(!(n>=1))return;
+  const idx=(window._parsedLevels||[]).findIndex((l,i)=>levelNumOf(l,i)===n);
+  if(idx<0){showToast(`⚠ El Nivel ${n} ya no existe en el juego`);return;}
+  applyGameLevel(idx);
+  setLoadedLevel(n);
+}
+
+// Marca el nivel cargado y habilita "Guardar nivel"
+function setLoadedLevel(n){
+  _loadedLevelNum=n;
+  const btn=document.getElementById('btnSaveLoaded');
+  const info=document.getElementById('loadedLevelInfo');
+  if(btn){btn.disabled=!n;btn.textContent=n?`💾 Guardar nivel ${n}`:'💾 Guardar nivel';}
+  if(info)info.textContent=n?`Editando el Nivel ${n} del juego`:'';
+}
+
+// Botón "Guardar nivel" (sección Niveles): guarda cubos, colores y cajas del nivel cargado
+function saveLoadedLevel(){
+  if(!_loadedLevelNum){showToast('⚠ Primero carga un nivel con "Cargar nivel"');return;}
+  const mode=document.getElementById('saveMode'); if(mode)mode.value='game';
+  setSaveLevelNum(_loadedLevelNum);
+  saveLevel();
+}
+
+// Sincroniza los campos Filas/Columnas de "Datos del nivel" con el tablero actual
+function syncLevelSizeInputs(){
+  const r=document.getElementById('lvlRows'),c=document.getElementById('lvlCols');
+  if(r)r.value=gRows; if(c)c.value=gCols;
+}
+
+// Cambiar filas/columnas desde "Datos del nivel": recorta o amplía el tablero
+// conservando los cubos existentes (las celdas nuevas quedan vacías).
+function applyLevelSize(){
+  if(!grid.length){syncLevelSizeInputs();return;}
+  const nr=Math.max(5,Math.min(80,parseInt(document.getElementById('lvlRows').value,10)||gRows));
+  const nc=Math.max(5,Math.min(80,parseInt(document.getElementById('lvlCols').value,10)||gCols));
+  if(nr===gRows&&nc===gCols)return;
+  const lost=grid.some((row,r)=>row.some((v,c)=>v>0&&(r>=nr||c>=nc)));
+  if(lost&&!confirm(`Al reducir a ${nc}×${nr} se perderán cubos fuera del nuevo tamaño.\n¿Continuar?`)){syncLevelSizeInputs();return;}
+  saveUndo();
+  grid=Array.from({length:nr},(_,r)=>Array.from({length:nc},(_,c)=>grid[r]?.[c]??0));
+  gRows=nr;gCols=nc;
+  document.getElementById('rCols').value=nc;document.getElementById('colV').textContent=nc;
+  document.getElementById('rRows').value=nr;document.getElementById('rowV').textContent=nr;
+  selection.clear();bfsResult=null;
+  render();updatePal();
+  showToast(`📐 Tablero redimensionado a ${nc}×${nr}`);
+}
+
+// Compatibilidad: carga por índice dentro de window._parsedLevels
+function applyPickedLevel(i){
+  if(!window._parsedLevels?.length)return;
+  applyGameLevel(+i);
+  toggleQPanel(null);
+}
+
+// Pre-cargar la lista de niveles y el selector de guardado al abrir el editor
+window.addEventListener('DOMContentLoaded',()=>{
+  populateSaveLevelSelect();                       // 1..100 inmediato
+  autoLoadGameLevels().catch(()=>{}).then(()=>refreshExistingLevels());
+});
+
+function quickCreateNew(){
+  // Leer dimensiones del panel rápido y crear el diseño
+  const nc=Math.max(5,Math.min(80,parseInt(document.getElementById('qNewCols').value)||30));
+  const nr=Math.max(5,Math.min(80,parseInt(document.getElementById('qNewRows').value)||30));
+  // Sincronizar con los inputs del sidebar principal
+  document.getElementById('newCols').value=nc;
+  document.getElementById('newRows').value=nr;
+  document.getElementById('ncV').textContent=nc;
+  document.getElementById('nrV').textContent=nr;
+  // Cerrar el panel y crear
+  document.getElementById('qPanelNew').style.display='none';
+  const before=grid.length;
+  createNewDesign();
+  // Si se creó (no se canceló), ya no hay un nivel del juego en edición
+  if(grid.length&&(before===0||!grid.some(r=>r.some(v=>v>0))))setLoadedLevel(null);
+}
+
+// Variante de loadGameLevelFile que popula el selector rápido (qLevelSel)
+function loadGameLevelFileQ(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.js';
+  inp.onchange=ev=>{
+    const file=ev.target.files[0]; if(!file)return;
+    const rd=new FileReader();
+    rd.onload=re=>{
+      const levels=parseLevelDataFile(re.target.result);
+      if(!levels.length){showToast('❌ No se encontraron niveles LEVEL_X en el archivo');return;}
+      window._parsedLevels=levels;
+      // Renderizar selector en el panel rápido
+      const sel=document.getElementById('qLevelSel');
+      sel.style.display='block';
+      sel.innerHTML='<div style="font-size:10px;color:var(--dim);margin-bottom:5px;font-weight:600">Selecciona nivel a editar:</div>'
+        +levels.map((l,i)=>`<button class="qlvl-btn" onclick="applyGameLevel(${i});toggleQPanel(null)">`
+          +`🎮 ${l.data.name||l.name} <span style="opacity:.6;font-size:9px">${l.data.cols}×${l.data.rows} · ${Object.keys(l.data.colors).length} colores</span>`
+          +`</button>`).join('');
+      // También poblar el selector del bottom sidebar (compatibilidad)
+      const sel2=document.getElementById('gameLevelSel');
+      if(sel2){ sel2.style.display='block'; sel2.innerHTML=sel.innerHTML; }
+      showToast(`📂 ${levels.length} nivel${levels.length>1?'es':''} encontrado${levels.length>1?'s':''}`);
+    };
+    rd.readAsText(file);
+  };
+  inp.click();
+}
+
+function createNewDesign(skipConfirm=false){
+  const nc=Math.max(5,Math.min(80,parseInt(document.getElementById('newCols').value)||30));
+  const nr=Math.max(5,Math.min(80,parseInt(document.getElementById('newRows').value)||30));
+  const hasContent=grid.length&&grid.some(row=>row.some(v=>v>0));
+  if(!skipConfirm&&hasContent&&!confirm(`¿Crear lienzo vacío ${nc}×${nr}?\nSe descartará el diseño actual.\n(Guárdalo primero con 💾 si no quieres perderlo.)`))return;
+  gCols=nc; gRows=nr;
+  grid=Array.from({length:nr},()=>new Array(nc).fill(0));
+  pal=[]; boxes=[]; bfsResult=null; srcData=null;
+  undo=[]; selection.clear();
+  const thumb=document.getElementById('thumb');
+  if(thumb){thumb.style.display='none';thumb.src='';}
+  document.getElementById('rCols').value=nc; document.getElementById('colV').textContent=nc;
+  document.getElementById('rRows').value=nr; document.getElementById('rowV').textContent=nr;
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('editorArea').style.display='flex';
+  if(document.getElementById('cpanel'))document.getElementById('cpanel').style.display='none';
+  updatePal(); render();
+  showToast(`✨ Lienzo vacío ${nc}×${nr} listo — añade colores a la paleta`);
+}
+
+// ── Cargar LevelData.js del proyecto ─────────────────────────────────────
+function loadGameLevelFile(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.js,.mjs,.ts';
+  inp.onchange=ev=>{
+    const file=ev.target.files[0]; if(!file)return;
+    const rd=new FileReader();
+    rd.onload=re=>{
+      const levels=parseLevelDataFile(re.target.result);
+      if(!levels.length){showToast('❌ No se encontraron niveles LEVEL_X en el archivo');return;}
+      // Mismo selector que "Editar nivel" (fuente única de niveles del juego)
+      window._parsedLevels=levels;
+      _autoLevelsLoaded=true;
+      populateLevelPicker(levels);
+      document.getElementById('qLevelPick').style.display='block';
+      document.getElementById('qLevelLoading').style.display='none';
+      showToast(`📂 ${levels.length} nivel${levels.length>1?'es':''} encontrado${levels.length>1?'s':''} — elige cuál editar`);
+    };
+    rd.readAsText(file);
+  };
+  inp.click();
+}
+
+function parseLevelDataFile(code){
+  // Extraer nombres de variables LEVEL_X
+  const names=[...new Set([...code.matchAll(/export\s+const\s+(LEVEL_\w+)/g)].map(m=>m[1]))];
+  if(!names.length)return[];
+  // Normalizar el código: quitar 'export', convertir 'const' en 'var'
+  const stripped=code.replace(/^\s*export\s+/gm,'').replace(/\bconst\s+/g,'var ');
+  try{
+    const retStr='{'+names.map(n=>`"${n}":typeof ${n}!=="undefined"?${n}:null`).join(',')+'}';
+    const fn=new Function(stripped+'\nreturn '+retStr+';');
+    const result=fn();
+    return names
+      .filter(n=>result[n]&&result[n].grid&&result[n].colors)
+      .map(n=>({name:n,data:result[n]}));
+  }catch(e){console.error('parseLevelDataFile:',e);return[];}
+}
+
+function applyGameLevel(i){
+  const entry=window._parsedLevels[i]; if(!entry)return;
+  const d=entry.data;
+  if(!d.grid||!d.colors||!d.cols||!d.rows){showToast('❌ Nivel inválido o incompleto');return;}
+  // Preseleccionar ese nº de nivel como destino de guardado
+  const lvlNum=d.id??parseInt((entry.name||'').replace(/\D/g,''),10);
+  if(Number.isInteger(lvlNum))setSaveLevelNum(lvlNum);
+  // Construir paleta desde colors ({id: 0xRRGGBB})
+  const newPal=[];
+  for(const[idStr,hexNum] of Object.entries(d.colors)){
+    const id=parseInt(idStr);
+    const r=(hexNum>>16)&255,g=(hexNum>>8)&255,b=hexNum&255;
+    newPal.push({id,rgb:[r,g,b],hex:'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')});
+  }
+  newPal.sort((a,b)=>a.id-b.id);
+  gRows=d.rows; gCols=d.cols; pal=newPal;
+  grid=d.grid.map(row=>[...row]);
+  document.getElementById('lvlName').value=d.name||entry.name;
+  document.getElementById('cellSz').value=d.cell||12;
+  document.getElementById('boxCols').value=d.boxCols||4;
+  document.getElementById('holeGap').value=d.holeGap||70;
+  document.getElementById('rCols').value=gCols; document.getElementById('colV').textContent=gCols;
+  document.getElementById('rRows').value=gRows; document.getElementById('rowV').textContent=gRows;
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('editorArea').style.display='flex';
+  if(document.getElementById('cpanel'))document.getElementById('cpanel').style.display='none';
+  undo=[]; selection.clear(); srcData=null;
+  const thumb=document.getElementById('thumb'); if(thumb)thumb.style.display='none';
+  // Importar cajas
+  if(d.boxes&&Array.isArray(d.boxes)&&d.boxes.length){
+    boxes=d.boxes.map(b=>{
+      if(Array.isArray(b))return{uid:++_bxUid,colorId:b[0],n:b[1]||1,diff:'normal',col:b[2],row:b[3],order:b[4]};
+      return{uid:++_bxUid,colorId:b.colorId!=null?b.colorId:b.id,n:b.n||b[1]||1,diff:b.diff||'normal',col:b.col,row:b.row};
+    });
+  }else{boxes=[];}
+  bfsResult=null;
+  updatePal(); render();
+  if(!boxes.length)buildBoxes(true);
+  showToast(`✅ ${d.name||entry.name} — ${gCols}×${gRows} · ${newPal.length} colores · ${boxes.length} cajas`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Mapa de Calor — Orden de Liberación ──────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+function toggleHeatmap(){
+  showHeatmap=!showHeatmap;
+  const btn=document.getElementById('btnHeatmap');
+  const leg=document.getElementById('heatLegend');
+  if(btn)btn.classList.toggle('btn-hmon',showHeatmap);
+  if(leg)leg.style.display=showHeatmap?'block':'none';
+  if(grid.length)render();
+}
+
+// Gradiente de color: t=0 → verde (primero), t=1 → rojo (último)
+function heatGradient(t){
+  let r,g,b;
+  if(t<0.33){const f=t/0.33;r=Math.round(f*255);g=200;b=Math.round((1-f)*80);}
+  else if(t<0.66){const f=(t-0.33)/0.33;r=255;g=Math.round((1-f)*200+f*100);b=0;}
+  else{const f=(t-0.66)/0.34;r=255;g=Math.round((1-f)*100);b=0;}
+  return[r,g,b];
+}
+
+function drawHeatmap(){
+  if(!boxes.length)return;
+  // Calcular grupo de liberación para cada colorId (primera aparición en boxes)
+  const colorGroup=new Map();
+  let gi=0;
+  const seenOrder=[];
+  boxes.forEach(b=>{
+    if(!colorGroup.has(b.colorId)){colorGroup.set(b.colorId,gi++);seenOrder.push(b.colorId);}
+  });
+  const maxG=gi-1;
+
+  // Parámetros de texto
+  const showLabel=cz>=11;
+  if(showLabel){
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.font=`bold ${Math.max(7,Math.floor(cz*0.42))}px sans-serif`;
+  }
+
+  for(let r=0;r<gRows;r++){
+    for(let c=0;c<gCols;c++){
+      const id=grid[r]?.[c]??0;
+      if(!id)continue;
+      if(!colorGroup.has(id))continue;
+      const g=colorGroup.get(id);
+      const t=maxG>0?g/maxG:0;
+      const[cr,cg,cb]=heatGradient(t);
+      const x=c*cz,y=r*cz;
+      // Capa semitransparente de color
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},0.58)`;
+      ctx.fillRect(x,y,cz,cz);
+      // Número de grupo (1-based) sobre la celda
+      if(showLabel){
+        // Sombra para legibilidad
+        ctx.fillStyle='rgba(0,0,0,0.55)';
+        ctx.fillText(g+1,x+cz/2+1,y+cz/2+1);
+        ctx.fillStyle='#fff';
+        ctx.fillText(g+1,x+cz/2,y+cz/2);
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Panel de Cajas de Hormigas (Sidebar Derecho) ─────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+const DIFF_LABELS={easy:{label:'F',title:'Fácil',bg:'#22c55e22',color:'#22c55e'},normal:{label:'N',title:'Normal',bg:'#4b96f522',color:'#4b96f5'},hard:{label:'D',title:'Difícil',bg:'#ef444422',color:'#ef4444'}};
+const DIFF_ORDER=['easy','normal','hard'];
+
+// ── Construir cajas automáticamente desde la paleta ──────────────────────
+function buildBoxes(force){
+  if(!force&&boxes.length>0)return;
+  const used=new Set();
+  for(const row of grid)for(const v of row)if(v>0)used.add(v);
+  boxes=[];
+  let order=1;
+  for(const p of pal){
+    if(!used.has(p.id))continue;
+    let rem=cntCell(p.id);
+    while(rem>0){
+      const n=Math.min(rem,BOX_MAX_ANTS);
+      boxes.push({uid:++_bxUid,colorId:p.id,n,diff:'normal',order:order++});
+      rem-=n;
+    }
+  }
+  bfsResult=null;
+  renderBoxPanel();
+  scheduleAutoSave();
+}
+
+// ── BFS multicapa — determina capa de accesibilidad de cada color ─────────
+function bfsLayers(){
+  const colorLayer=new Map();
+  const removed=new Set([0]);   // 0=vacío, siempre transitable
+  const DIRS=[[-1,0],[1,0],[0,-1],[0,1]];
+  for(let layer=0;layer<30;layer++){
+    const reach=Array.from({length:gRows},()=>new Array(gCols).fill(false));
+    const q=[];
+    // Sembrar desde celdas del borde que sean removibles
+    for(let r=0;r<gRows;r++){
+      for(let c=0;c<gCols;c++){
+        if((r===0||r===gRows-1||c===0||c===gCols-1)&&removed.has(grid[r][c])){
+          reach[r][c]=true;q.push([r,c]);
+        }
+      }
+    }
+    let qi=0;
+    while(qi<q.length){
+      const[r,c]=q[qi++];
+      for(const[dr,dc]of DIRS){
+        const nr=r+dr,nc=c+dc;
+        if(nr<0||nr>=gRows||nc<0||nc>=gCols)continue;
+        if(reach[nr][nc]||!removed.has(grid[nr][nc]))continue;
+        reach[nr][nc]=true;q.push([nr,nc]);
+      }
+    }
+    // Colores adyacentes al área alcanzable
+    const newly=new Set();
+    for(let r=0;r<gRows;r++){
+      for(let c=0;c<gCols;c++){
+        const id=grid[r][c];
+        if(!id||removed.has(id)||colorLayer.has(id))continue;
+        let adj=false;
+        for(const[dr,dc]of DIRS){
+          const nr=r+dr,nc=c+dc;
+          if(nr<0||nr>=gRows||nc<0||nc>=gCols){adj=true;break;}
+          if(reach[nr][nc]){adj=true;break;}
+        }
+        if(adj)newly.add(id);
+      }
+    }
+    if(!newly.size)break;
+    for(const id of newly){colorLayer.set(id,layer);removed.add(id);}
+  }
+  return colorLayer;
+}
+
+function runBFS(){
+  if(!grid.length){showToast('⚠ Carga un diseño primero');return;}
+  bfsResult=bfsLayers();
+  const leg=document.getElementById('bfsLegend');
+  if(leg)leg.style.display='block';
+  renderBoxPanel();
+  showToast(`🔬 BFS completado — ${bfsResult.size} colores analizados`);
+}
+
+function bfsBadge(colorId){
+  if(!bfsResult)return'';
+  const layer=bfsResult.get(colorId);
+  if(layer===undefined)return'<span style="font-size:7px;color:rgba(255,255,255,.5)">?</span>';
+  const colors=['#22c55e','#fbbf24','#f97316','#ef4444','#ef4444'];
+  const col=colors[Math.min(layer,4)];
+  return`<span style="font-size:7px;background:${col}33;color:${col};border-radius:2px;padding:0 3px;font-weight:800;text-shadow:none;line-height:1.4">L${layer}</span>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Generación por dificultad + simulación de éxito ────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// paths  = caminos viables simultáneos (cajas visibles que progresan)
+// depths = profundidades de trampa a probar (0 = próxima caja no alcanzable, 1 = la más tardía)
+// target = % de éxito objetivo: se generan varios candidatos y se elige el más cercano
+const DIFFICULTIES={
+  low  :{label:'Bajo',      paths:4, depths:[0],           target:100, color:'#22c55e'},
+  mid  :{label:'Medio',     paths:3, depths:[0.2,0.4,0.6],         target:70,  color:'#fbbf24'},
+  high :{label:'Alto',      paths:2, depths:[0.3,0.5,0.7,0.9],     target:45,  color:'#f97316'},
+  super:{label:'Súper Hard',paths:1, depths:[0.2,0.4,0.6,0.8,1.0], target:15,  color:'#ef4444'},
+};
+const SIM_SLOTS=5;        // slots del juego
+const SIM_TRIALS=120;     // partidas simuladas para el % final
+const SIM_PICK_TRIALS=40; // partidas para comparar candidatos
+const SIM_SMART=0.6;      // prob. de que el jugador simulado elija una caja que progresa (jugador casual)
+
+// Cubos alcanzables desde el borde a través de celdas vacías (misma regla que el juego):
+// Map<colorId, [[r,c],…]>. Un cubo es alcanzable si está en el borde o toca el área vacía
+// conectada con el exterior.
+function reachableCubes(board){
+  const R=board.length,C=board[0].length;
+  const seen=Array.from({length:R},()=>new Uint8Array(C));
+  const q=[];
+  const visit=(r,c)=>{
+    if(r<0||r>=R||c<0||c>=C||seen[r][c])return;
+    seen[r][c]=1;
+    if(board[r][c]===0)q.push(r*C+c);
+  };
+  for(let c=0;c<C;c++){visit(0,c);visit(R-1,c);}
+  for(let r=0;r<R;r++){visit(r,0);visit(r,C-1);}
+  let qi=0;
+  while(qi<q.length){
+    const k=q[qi++],r=(k/C)|0,c=k%C;
+    visit(r-1,c);visit(r+1,c);visit(r,c-1);visit(r,c+1);
+  }
+  const byColor=new Map();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const id=board[r][c];
+    if(id>0&&seen[r][c]){ if(!byColor.has(id))byColor.set(id,[]); byColor.get(id).push([r,c]); }
+  }
+  return byColor;
+}
+
+// Elimina hasta `limit` cubos de `colorId` en cascada (como hace una caja de hormigas:
+// cada cubo removido puede abrir paso a otros del mismo color). Devuelve cuántos quitó.
+function removeColorCascade(board,colorId,limit){
+  let removed=0;
+  while(removed<limit){
+    const cells=reachableCubes(board).get(colorId);
+    if(!cells||!cells.length)break;
+    cells.sort((a,b)=>b[0]-a[0]||a[1]-b[1]);   // prioridad del juego: fila mayor, col menor
+    for(const[r,c] of cells){
+      if(removed>=limit)break;
+      board[r][c]=0;removed++;
+    }
+  }
+  return removed;
+}
+
+// Secuencia IDEAL de desbloqueo: simula el juego eligiendo siempre un color alcanzable
+// y crea cajas de hasta 99 hormigas. Resultado: [{colorId,n}] en el orden exacto en
+// que deben jugarse.
+//   mode 'bottom' → las secciones más bajas del dibujo primero (Bajo/Medio)
+//   mode 'narrow' → primero los colores con MENOS cubos alcanzables: abre caminos
+//                   estrechos y crea más dependencias (Alto/Súper Hard)
+function buildUnlockSequence(mode='bottom'){
+  const board=grid.map(r=>[...r]);
+  const seq=[];
+  let guard=0;
+  while(guard++<5000){
+    const reach=reachableCubes(board);
+    if(!reach.size)break;
+    let best=null;
+    for(const[id,cells] of reach){
+      const maxRow=cells.reduce((m,p)=>Math.max(m,p[0]),-1);
+      const cnt=cells.length;
+      let better;
+      if(mode==='narrow') better=!best||cnt<best.cnt||(cnt===best.cnt&&maxRow>best.maxRow);
+      else                better=!best||maxRow>best.maxRow||(maxRow===best.maxRow&&cnt>best.cnt);
+      if(better)best={id,maxRow,cnt};
+    }
+    const n=removeColorCascade(board,best.id,BOX_MAX_ANTS);
+    if(n<=0)break;
+    seq.push({colorId:best.id,n});
+  }
+  return seq;
+}
+
+// Distribuye la secuencia en columnas según la dificultad (nº de caminos viables K).
+// Construcción por simulación: se "juega" la partida de forma ideal y, cada vez que
+// una columna queda sin caja visible, se decide qué caja va en esa posición:
+//   - si hay menos de K cajas visibles que pueden progresar → la siguiente caja VIABLE
+//     de la secuencia (abre un camino);
+//   - si ya hay K caminos → una caja TRAMPA: la más tardía de la secuencia cuyo color
+//     aún no es alcanzable (ocupa un slot sin progresar hasta que se libere su zona).
+// Bajo (K = nº de columnas) ⇒ todas viables ⇒ secuencia pura en orden.
+// Devuelve cajas [{colorId,n,order,col,row}].
+function layoutByDifficulty(seq,diffKey,bc,depthOverride,jitter=false){
+  const K=Math.max(1,Math.min(bc,DIFFICULTIES[diffKey]?.paths??bc));
+  const trapDepth=depthOverride??(DIFFICULTIES[diffKey]?.depths?.[0]??0);
+  // Conserva uid (si la secuencia viene de cajas existentes) para no perder identidad
+  const pool=seq.map((s,i)=>({uid:s.uid,colorId:s.colorId,n:s.n,order:i+1,diff:s.diff||'normal'}));
+  const board=grid.map(r=>[...r]);
+  const cols=Array.from({length:bc},()=>[]);
+  const top=new Array(bc).fill(null);
+  const slots=[];
+  const out=[];
+  let guard=0;
+  while(guard++<5000){
+    // Progreso de las cajas en slots
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const s of slots){
+        if(s.n<=0)continue;
+        const k=removeColorCascade(board,s.colorId,s.n);
+        if(k>0){s.n-=k;changed=true;}
+      }
+    }
+    for(let i=slots.length-1;i>=0;i--)if(slots[i].n<=0)slots.splice(i,1);
+
+    let reach=reachableCubes(board);
+    // Rellenar columnas sin caja visible
+    for(let ci=0;ci<bc&&pool.length;ci++){
+      if(top[ci])continue;
+      const viableNow=top.filter(b=>b&&reach.has(b.colorId)).length;
+      let idx=-1;
+      if(viableNow<K){
+        idx=pool.findIndex(b=>reach.has(b.colorId));                 // siguiente viable
+      }else{
+        // Trampa: una caja cuyo color AÚN no es alcanzable. Cuanto mayor trapDepth,
+        // más tardía en la secuencia (tarda más en volverse viable y ocupa el slot
+        // más tiempo). Al resolverse, la columna recibe otra trampa → presión constante.
+        const cand=[];
+        pool.forEach((b,j)=>{ if(!reach.has(b.colorId))cand.push(j); });
+        if(cand.length){
+          let pos=trapDepth*(cand.length-1);
+          if(jitter)pos+=(Math.random()*2-1)*cand.length*0.15;   // variación entre candidatos
+          idx=cand[Math.max(0,Math.min(cand.length-1,Math.round(pos)))];
+        }
+      }
+      if(idx<0)idx=0;
+      const box=pool.splice(idx,1)[0];
+      const placed={...box,col:ci,row:cols[ci].length};
+      cols[ci].push(placed);out.push(placed);
+      top[ci]=placed;
+    }
+
+    // Jugador ideal: toma la caja visible viable con menor nº de orden
+    const viable=top.map((b,ci)=>b&&reach.has(b.colorId)?ci:-1).filter(ci=>ci>=0);
+    if(slots.length<SIM_SLOTS&&viable.length){
+      viable.sort((a,b)=>top[a].order-top[b].order);
+      const ci=viable[0];
+      slots.push({colorId:top[ci].colorId,n:top[ci].n});
+      top[ci]=null;
+      continue;
+    }
+    if(!slots.length){
+      // Sin jugada posible: si quedan cajas visibles no viables y pool vacío → fin
+      if(!pool.length)break;
+      // Forzar: colocar la siguiente de la secuencia donde haya hueco para evitar bloqueo
+      const ci=top.indexOf(null);
+      if(ci<0)break;
+      const box=pool.shift();
+      const placed={...box,col:ci,row:cols[ci].length};
+      cols[ci].push(placed);out.push(placed);top[ci]=placed;
+    }
+  }
+  // Cajas no colocadas (no debería ocurrir): al final, en orden
+  while(pool.length){
+    const ci=cols.reduce((m,c,i)=>c.length<cols[m].length?i:m,0);
+    const box=pool.shift();
+    const placed={...box,col:ci,row:cols[ci].length};
+    cols[ci].push(placed);out.push(placed);
+  }
+  return out;
+}
+
+// Simula partidas con un jugador que elige AL AZAR entre las cajas disponibles
+// (la primera de cada columna). Devuelve {success:%, avgPaths} donde avgPaths es el
+// nº medio de cajas disponibles que podían progresar en cada decisión (≈ caminos).
+function simulateLayout(layout,bc,trials=SIM_TRIALS){
+  if(!layout.length)return{success:0,avgPaths:0};
+  let wins=0,pathSum=0,decisions=0;
+  for(let t=0;t<trials;t++){
+    const board=grid.map(r=>[...r]);
+    const queues=Array.from({length:bc},()=>[]);
+    [...layout].sort((a,b)=>a.row-b.row).forEach(b=>{ if(b.col<bc)queues[b.col].push({colorId:b.colorId,n:b.n}); });
+    const slots=[];
+    let remaining=board.flat().filter(v=>v>0).length;
+    let guard=0;
+    while(guard++<4000){
+      // Fase de progreso: las cajas en slots quitan todo lo alcanzable de su color
+      let changed=true;
+      while(changed){
+        changed=false;
+        for(const s of slots){
+          if(s.n<=0)continue;
+          const k=removeColorCascade(board,s.colorId,s.n);
+          if(k>0){s.n-=k;remaining-=k;changed=true;}
+        }
+      }
+      for(let i=slots.length-1;i>=0;i--)if(slots[i].n<=0)slots.splice(i,1);
+      if(remaining<=0){wins++;break;}
+      const tops=queues.map((q,ci)=>q.length?ci:-1).filter(ci=>ci>=0);
+      if(slots.length>=SIM_SLOTS||!tops.length)break;   // bloqueado → derrota
+      // Métrica de caminos: cuántas cajas disponibles podrían progresar ahora
+      const reach=reachableCubes(board);
+      const good=tops.filter(ci=>reach.has(queues[ci][0].colorId));
+      pathSum+=good.length;decisions++;
+      // Jugador "casual": con prob. SIM_SMART elige una caja que progresa; si no, cualquiera
+      const pickFrom=(good.length&&Math.random()<SIM_SMART)?good:tops;
+      const ci=pickFrom[Math.floor(Math.random()*pickFrom.length)];
+      slots.push(queues[ci].shift());
+    }
+  }
+  return{success:Math.round(wins/trials*100),avgPaths:decisions?+(pathSum/decisions).toFixed(1):0};
+}
+
+// Genera la mejor distribución para una dificultad: prueba varias profundidades de
+// trampa (con variación), simula cada candidato y se queda con el más cercano al
+// % de éxito objetivo de esa dificultad. Devuelve {layout, success, avgPaths}.
+function generateForDifficulty(seqs,diffKey,bc){
+  const d=DIFFICULTIES[diffKey];
+  // seqs: {bottom, narrow}. Bajo/Medio usan 'bottom'; Alto/Súper prueban ambas.
+  const seqList=d.paths>=3?[seqs.bottom]:[seqs.bottom,seqs.narrow];
+  if(d.paths>=bc){
+    const layout=layoutByDifficulty(seqs.bottom,diffKey,bc,0,false);
+    return{layout,...simulateLayout(layout,bc,SIM_TRIALS)};
+  }
+  let best=null;
+  for(const seq of seqList){
+    for(const depth of d.depths){
+      for(let rep=0;rep<2;rep++){
+        const layout=layoutByDifficulty(seq,diffKey,bc,depth,rep>0);
+        const res=simulateLayout(layout,bc,SIM_PICK_TRIALS);
+        const score=Math.abs(res.success-d.target);
+        if(!best||score<best.score)best={layout,score};
+      }
+    }
+  }
+  return{layout:best.layout,...simulateLayout(best.layout,bc,SIM_TRIALS)};
+}
+
+// Secuencia de juego IDEAL para las cajas EXISTENTES: simula el tablero y va tomando,
+// de entre las cajas pendientes, una cuyo color sea alcanzable (preferencia: cubos
+// alcanzables más abajo; empate → más hormigas). Devuelve las cajas en ese orden.
+function orderExistingBoxes(list){
+  const board=grid.map(r=>[...r]);
+  const pending=list.map(b=>({uid:b.uid,colorId:b.colorId,n:b.n,diff:b.diff}));
+  const seq=[];
+  let guard=0;
+  while(pending.length&&guard++<5000){
+    const reach=reachableCubes(board);
+    let bestIdx=-1,bestKey=null;
+    pending.forEach((b,i)=>{
+      const cells=reach.get(b.colorId);
+      if(!cells||!cells.length)return;
+      const maxRow=cells.reduce((m,p)=>Math.max(m,p[0]),-1);
+      const key=[maxRow,b.n];
+      if(bestIdx<0||key[0]>bestKey[0]||(key[0]===bestKey[0]&&key[1]>bestKey[1])){bestIdx=i;bestKey=key;}
+    });
+    if(bestIdx<0)break;                       // nada alcanzable: el resto va al final
+    const b=pending.splice(bestIdx,1)[0];
+    removeColorCascade(board,b.colorId,b.n);
+    seq.push(b);
+  }
+  return seq.concat(pending);
+}
+
+// «Reordenar»: mantiene las cajas actuales (colores y hormigas) y solo cambia su
+// columna/fila y nº de orden para que el nivel tenga tantas estrategias viables
+// como indica la dificultad (4 / 3 / 2 / 1 caminos).
+let _reorderToken=0;
+function reorderBoxes(){
+  if(!grid.length){showToast('⚠ Carga un diseño primero');return;}
+  if(!boxes.length){showToast('⚠ No hay cajas. Usa «Generar cajas» o «Regenerar»');return;}
+  const diffKey=document.getElementById('genDiff')?.value||'low';
+  const bc=boxColsCount();
+  const seq=orderExistingBoxes(boxes);
+  const token=++_reorderToken;
+  const stats=document.getElementById('diffStats');
+  if(stats)stats.innerHTML=`<span style="color:var(--dim)">⏳ Reordenando para ${DIFFICULTIES[diffKey].label}…</span>`;
+  setTimeout(()=>{
+    if(token!==_reorderToken)return;
+    const res=generateForDifficulty({bottom:seq,narrow:seq},diffKey,bc);
+    // Aplicar posiciones/orden a las cajas existentes por uid
+    const byUid=new Map(res.layout.map(b=>[b.uid,b]));
+    boxes.forEach(b=>{const l=byUid.get(b.uid);if(l){b.col=l.col;b.row=l.row;b.order=l.order;}});
+    bfsResult=null;
+    renderBoxPanel();
+    scheduleAutoSave();
+    renderDiffStats([{k:diffKey,d:DIFFICULTIES[diffKey],success:res.success,avgPaths:res.avgPaths}],diffKey,
+      `${boxes.length} cajas reordenadas · ${SIM_TRIALS} partidas simuladas`);
+    showToast(`🧩 Cajas reordenadas — ${DIFFICULTIES[diffKey].label}: ${res.success}% de éxito, ${res.avgPaths} caminos promedio`,3600);
+  },20);
+}
+
+// ── Regenerar con dificultad + tabla de % éxito ───────────────────────────
+let _regenToken=0;
+function regenerateBoxes(){
+  if(!grid.length){showToast('⚠ Carga un diseño primero');return;}
+  const diffKey=document.getElementById('genDiff')?.value||'low';
+  const bc=boxColsCount();
+  const seqs={bottom:buildUnlockSequence('bottom'),narrow:buildUnlockSequence('narrow')};
+  const seq=seqs.bottom;
+  if(!seq.length){showToast('⚠ El dibujo no tiene cubos');return;}
+  const token=++_regenToken;
+  const stats=document.getElementById('diffStats');
+  if(stats)stats.innerHTML=`<span style="color:var(--dim)">⏳ Generando ${DIFFICULTIES[diffKey].label}…</span>`;
+
+  // 1) Dificultad elegida primero → aplicar al panel
+  setTimeout(()=>{
+    if(token!==_regenToken)return;
+    const chosen=generateForDifficulty(seqs,diffKey,bc);
+    boxes=chosen.layout.map(b=>({uid:++_bxUid,colorId:b.colorId,n:b.n,diff:'normal',order:b.order,col:b.col,row:b.row}));
+    bfsResult=null;
+    renderBoxPanel();
+    scheduleAutoSave();
+    showToast(`🔄 ${boxes.length} cajas — ${DIFFICULTIES[diffKey].label}: ${chosen.success}% de éxito`);
+    const rows=[{k:diffKey,d:DIFFICULTIES[diffKey],success:chosen.success,avgPaths:chosen.avgPaths}];
+    renderDiffStats(rows,diffKey,`${seq.length} cajas · calculando las demás dificultades…`);
+
+    // 2) Resto de dificultades, una por tick para mantener la UI fluida
+    const pending=Object.keys(DIFFICULTIES).filter(k=>k!==diffKey);
+    const step=()=>{
+      if(token!==_regenToken)return;
+      const k=pending.shift();
+      if(!k){
+        rows.sort((a,b)=>Object.keys(DIFFICULTIES).indexOf(a.k)-Object.keys(DIFFICULTIES).indexOf(b.k));
+        renderDiffStats(rows,diffKey,`${seq.length} cajas · ${SIM_TRIALS} partidas simuladas por dificultad`);
+        return;
+      }
+      const r=generateForDifficulty(seqs,k,bc);
+      rows.push({k,d:DIFFICULTIES[k],success:r.success,avgPaths:r.avgPaths});
+      rows.sort((a,b)=>Object.keys(DIFFICULTIES).indexOf(a.k)-Object.keys(DIFFICULTIES).indexOf(b.k));
+      renderDiffStats(rows,diffKey,`${seq.length} cajas · calculando ${pending.map(p=>DIFFICULTIES[p].label).join(', ')||'…'}`);
+      setTimeout(step,20);
+    };
+    setTimeout(step,20);
+  },20);
+}
+
+// % de éxito de la distribución actual de cajas (tras edición manual)
+function evalCurrentLayout(){
+  if(!grid.length||!boxes.length){showToast('⚠ No hay cajas que evaluar');return;}
+  ensureBoxPositions();
+  const bc=boxColsCount();
+  const stats=document.getElementById('diffStats');
+  if(stats)stats.innerHTML='<span style="color:var(--dim)">⏳ Simulando partidas…</span>';
+  setTimeout(()=>{
+    const res=simulateLayout(boxes.map(b=>({colorId:b.colorId,n:b.n,col:b.col,row:b.row})),bc);
+    if(stats)stats.innerHTML=
+      `<b style="color:var(--text)">Distribución actual</b> — ${boxes.length} cajas<br>`+
+      `Éxito: <b style="color:${pctColor(res.success)}">${res.success}%</b> &nbsp;·&nbsp; caminos promedio: <b style="color:var(--text)">${res.avgPaths}</b>`+
+      `<div style="font-size:9px;color:var(--dim);margin-top:3px">Jugador aleatorio, ${SIM_TRIALS} partidas, ${SIM_SLOTS} slots</div>`;
+  },30);
+}
+
+function pctColor(p){ return p>=75?'#22c55e':p>=50?'#fbbf24':p>=25?'#f97316':'#ef4444'; }
+
+function renderDiffStats(rows,activeKey,foot){
+  const stats=document.getElementById('diffStats');
+  if(!stats)return;
+  stats.innerHTML=
+    `<div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:2px 8px;align-items:center">`+
+    `<span></span><b style="color:var(--text)">Dificultad</b><b style="color:var(--text)">Éxito</b><b style="color:var(--text)">Caminos</b>`+
+    rows.map(({k,d,success,avgPaths})=>
+      `<span style="color:${d.color}">${k===activeKey?'▶':'•'}</span>`+
+      `<span style="${k===activeKey?'color:var(--text);font-weight:700':''}">${d.label}</span>`+
+      `<b style="color:${pctColor(success)}">${success}%</b>`+
+      `<span>${avgPaths}</span>`).join('')+
+    `</div><div style="font-size:9px;color:var(--dim);margin-top:4px">${foot}<br>Éxito = partidas ganadas por un jugador que elige cajas al azar (${SIM_SLOTS} slots). Caminos = cajas disponibles que podían progresar en cada decisión.</div>`;
+}
+
+// ── Renderizar cajas estilo juego (grid visual) ────────────────────────────
+const BOX_MAX_ANTS=99;   // máximo de hormigas por caja
+
+// Nº de columnas de cajas configurado
+function boxColsCount(){ return Math.max(1,+document.getElementById('boxCols').value||4); }
+
+// Garantiza que cada caja tenga una posición (col,row) válida y única.
+// Las cajas sin posición (o con col fuera de rango) ocupan la primera celda libre
+// en orden fila-a-fila — equivalente al orden lineal antiguo.
+function ensureBoxPositions(){
+  const bc=boxColsCount();
+  const taken=new Set();
+  for(const b of boxes){
+    if(Number.isInteger(b.col)&&Number.isInteger(b.row)&&b.col>=0&&b.col<bc&&b.row>=0){
+      const k=b.col+','+b.row;
+      if(!taken.has(k)){taken.add(k);continue;}
+    }
+    b.col=undefined;b.row=undefined;   // reasignar más abajo
+  }
+  let r=0,c=0;
+  for(const b of boxes){
+    if(b.col!==undefined)continue;
+    while(taken.has(c+','+r)){c++;if(c>=bc){c=0;r++;}}
+    b.col=c;b.row=r;taken.add(c+','+r);
+  }
+}
+
+// Cajas ordenadas por posición (fila, columna) — orden de exportación al juego
+function boxesByPosition(){
+  ensureBoxPositions();
+  return [...boxes].sort((a,b)=>a.row-b.row||a.col-b.col);
+}
+
+function renderBoxPanel(){
+  const tbl=document.getElementById('bxTable');
+  const stats=document.getElementById('bxStats');
+  if(!tbl)return;
+  const bc=boxColsCount();
+  ensureBoxPositions();
+  const totalAnts=boxes.reduce((s,b)=>s+b.n,0);
+  if(stats)stats.innerHTML=boxes.length
+    ?`<b style="color:var(--text)">${boxes.length}</b> cajas &nbsp;·&nbsp; <b style="color:var(--text)">${totalAnts}</b> hormigas totales &nbsp;·&nbsp; <span style="color:var(--dim)">arrastra una caja a cualquier celda</span>`
+    :'Sin cajas configuradas — pulsa + en una celda o usa 🔄 Regenerar';
+
+  // Cuadrícula libre: tantas filas como la mayor ocupada + 1 fila vacía para añadir
+  const maxRow=boxes.reduce((m,b)=>Math.max(m,b.row),-1);
+  const rows=maxRow+2;
+  const at=new Map(boxes.map((b,i)=>[b.col+','+b.row,i]));
+
+  let html=`<div class="bxgrid" id="bxGrid" style="grid-template-columns:repeat(${bc},1fr)">`;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<bc;c++){
+      const i=at.get(c+','+r);
+      if(i===undefined){
+        // Celda vacía: destino de arrastre + botón añadir
+        html+=`<div class="bxcard-add" title="Añadir caja en columna ${c+1}, fila ${r+1} (o suelta una caja aquí)"
+          onclick="addBoxAt(${c},${r})"
+          ondragover="bxDragOver(event)" ondragleave="bxDragLeave(event)"
+          ondrop="bxDropCell(event,${c},${r})">
+          <span style="font-size:20px">+</span>
+        </div>`;
+        continue;
+      }
+      const b=boxes[i];
+      const bfsTag=bfsBadge(b.colorId);
+      html+=`<div class="bxcard"
+        draggable="true"
+        data-idx="${i}"
+        title="Color #${b.colorId} — ${b.n} hormigas · col ${c+1}, fila ${r+1}\nArrastra a cualquier celda (sobre otra caja: intercambia)"
+        ondragstart="bxDragStart(event,${i})"
+        ondragover="bxDragOver(event)"
+        ondrop="bxDrop(event,${i})"
+        ondragleave="bxDragLeave(event)"
+        ondragend="bxDragEnd(event)">
+        <!-- Canvas: cubo del juego -->
+        <canvas class="bxcvs" id="bxcvs_${b.uid}"></canvas>
+        <!-- Nº de orden de desbloqueo (clic para editar) -->
+        <span class="bxord" title="Orden de desbloqueo: ${b.order??'—'} (clic para cambiar)"
+          onclick="editBoxOrder(${i});event.stopPropagation()" ondragstart="event.stopPropagation()">${b.order??'·'}</span>
+        <!-- Overlay: ✕ top-right (hover) + badge BFS top-left (hover) + input central -->
+        <div class="bxcard-ov">
+          <div class="bxcard-top">
+            ${bfsTag}
+            <button class="bxcard-del" onclick="removeBox(${i});event.stopPropagation()" title="Eliminar">✕</button>
+          </div>
+          <div class="bxcard-mid">
+            <input type="number" class="bxcard-n" value="${b.n}" min="1" max="${BOX_MAX_ANTS}"
+              onfocus="bxInputFocus(event,${i})"
+              onblur="bxInputBlur(event,${i})"
+              oninput="if(+this.value>${BOX_MAX_ANTS})this.value=${BOX_MAX_ANTS};if(+this.value<1&&this.value!=='')this.value=1"
+              onclick="event.stopPropagation()"
+              ondragstart="event.stopPropagation()">
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+  html+=`</div>`;  // cierra bxgrid
+  tbl.innerHTML=html;
+  requestAnimationFrame(drawAllBoxCanvases);
+  renderColorCounter();
+  if(showHeatmap&&grid.length)render();
+}
+
+// ── Acciones sobre cajas ──────────────────────────────────────────────────
+function moveBox(i,dir){
+  const j=i+dir;
+  if(j<0||j>=boxes.length)return;
+  [boxes[i],boxes[j]]=[boxes[j],boxes[i]];
+  renderBoxPanel();scheduleAutoSave();
+}
+
+function setBoxN(i,val){
+  const n=Math.max(1,Math.min(BOX_MAX_ANTS,parseInt(val)||1));
+  boxes[i].n=n;
+  redrawOneCanvas(boxes[i],true);
+  renderColorCounter();
+  scheduleAutoSave();
+}
+
+function cycleDiff(i){
+  const cur=DIFF_ORDER.indexOf(boxes[i].diff);
+  boxes[i].diff=DIFF_ORDER[(cur+1)%DIFF_ORDER.length];
+  renderBoxPanel();scheduleAutoSave();
+}
+
+function removeBox(i){
+  boxes.splice(i,1);
+  renderBoxPanel();scheduleAutoSave();
+}
+
+function addBoxManual(){
+  if(!pal.length){showToast('⚠ Añade colores a la paleta primero');return;}
+  const p=pal[0];
+  boxes.push({uid:++_bxUid,colorId:p.id,n:1,diff:'normal'});
+  renderBoxPanel();scheduleAutoSave();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Canvas: renderizado de cubos igual que en el juego (spawnBoxGO) ───────
+// ════════════════════════════════════════════════════════════════════════════
+
+// Rounded-rect en Canvas 2D con radios independientes por esquina
+function canvasRoundRect(c2, x, y, w, h, radii){
+  if(typeof radii==='number')radii={tl:radii,tr:radii,bl:radii,br:radii};
+  const mx=Math.min(w/2,h/2);
+  const tl=Math.min(radii.tl||0,mx), tr=Math.min(radii.tr||0,mx);
+  const bl=Math.min(radii.bl||0,mx), br=Math.min(radii.br||0,mx);
+  c2.beginPath();
+  c2.moveTo(x+tl,y);
+  c2.lineTo(x+w-tr,y);   c2.arcTo(x+w,y,  x+w,y+tr,    tr);
+  c2.lineTo(x+w,y+h-br); c2.arcTo(x+w,y+h,x+w-br,y+h,  br);
+  c2.lineTo(x+bl,y+h);   c2.arcTo(x,  y+h,x,  y+h-bl,  bl);
+  c2.lineTo(x,y+tl);     c2.arcTo(x,  y,  x+tl,y,       tl);
+  c2.closePath();
+}
+
+function lightenHex(rgb,amt){
+  return`rgb(${Math.min(255,rgb[0]+amt)},${Math.min(255,rgb[1]+amt)},${Math.min(255,rgb[2]+amt)})`;
+}
+function darkenHex(rgb,amt){
+  return`rgb(${Math.max(0,rgb[0]-amt)},${Math.max(0,rgb[1]-amt)},${Math.max(0,rgb[2]-amt)})`;
+}
+
+// Dibuja un cubo de caja igual a spawnBoxGO del juego.
+// count: número a mostrar (null = no dibujar número, útil al editar)
+function drawBoxCanvas(cvs, hex, rgb, count){
+  const c2=cvs.getContext('2d');
+  const w=cvs.width, h=cvs.height;
+  if(!w||!h)return;
+  c2.clearRect(0,0,w,h);
+
+  const depthH = Math.max(3, Math.round(h*0.11)); // franja 3D inferior
+  const r      = Math.max(4, Math.round(h*0.18)); // radio de esquinas
+  const faceH  = h-depthH;
+  const hiH    = Math.max(2, Math.floor(faceH*0.18)); // franja de brillo
+
+  const light  = lightenHex(rgb, 40);
+  const dark   = darkenHex(rgb, 48);
+
+  // 1. Base oscura completa — forma la franja 3D visible en la base
+  c2.fillStyle=dark;
+  canvasRoundRect(c2,0,0,w,h,r);
+  c2.fill();
+
+  // 2. Cara frontal (color base) sin los últimos depthH px — esquinas sup. redondeadas
+  c2.fillStyle=hex;
+  canvasRoundRect(c2,0,0,w,faceH,{tl:r,tr:r,bl:3,br:3});
+  c2.fill();
+
+  // 3. Franja de brillo superior
+  c2.fillStyle=light;
+  canvasRoundRect(c2,0,0,w,hiH,{tl:r,tr:r,bl:0,br:0});
+  c2.fill();
+
+  // 4. Borde exterior oscuro (igual al lineStyle del juego)
+  c2.strokeStyle=dark;
+  c2.lineWidth=2;
+  canvasRoundRect(c2,1,1,w-2,h-2,r);
+  c2.stroke();
+
+  // 5. Número centrado en la cara frontal — igual a spawnBoxGO:
+  //    fontSize = max(12, round(side*0.45))px, blanco bold, stroke negro
+  if(count!=null){
+    const fs=Math.max(10, Math.round(h*0.43));
+    const ty=faceH/2;  // centro de la cara frontal (sin la franja 3D)
+    c2.save();
+    c2.font=`bold ${fs}px sans-serif`;
+    c2.textAlign='center';
+    c2.textBaseline='middle';
+    c2.lineJoin='round';
+    // Stroke negro grueso (como strokeThickness:5 en Phaser)
+    c2.strokeStyle='rgba(0,0,0,0.53)';
+    c2.lineWidth=Math.max(3,Math.round(fs*0.22));
+    c2.strokeText(String(count),w/2,ty);
+    // Relleno blanco
+    c2.fillStyle='#FFFFFF';
+    c2.fillText(String(count),w/2,ty);
+    c2.restore();
+  }
+}
+
+// Redibuja el canvas de una sola caja (con o sin número)
+function redrawOneCanvas(b, withCount){
+  const cvs=document.getElementById(`bxcvs_${b.uid}`);
+  if(!cvs)return;
+  const rect=cvs.getBoundingClientRect();
+  const w=Math.round(rect.width)||62;
+  const h=Math.round(rect.height)||62;
+  cvs.width=w; cvs.height=h;
+  const p=pal.find(x=>x.id===b.colorId);
+  drawBoxCanvas(cvs, p?p.hex:'#555555', p?p.rgb:[85,85,85], withCount?b.n:null);
+}
+
+// Dibuja todos los canvases de cajas actualmente en el DOM
+function drawAllBoxCanvases(){
+  boxes.forEach(b=>{
+    const cvs=document.getElementById(`bxcvs_${b.uid}`);
+    if(!cvs)return;
+    const rect=cvs.getBoundingClientRect();
+    const w=Math.round(rect.width)||62;
+    const h=Math.round(rect.height)||62;
+    cvs.width=w; cvs.height=h;
+    const p=pal.find(x=>x.id===b.colorId);
+    drawBoxCanvas(cvs, p?p.hex:'#555555', p?p.rgb:[85,85,85], b.n);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Contador de hormigas por color ────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderColorCounter(){
+  const el=document.getElementById('colorCounter');
+  if(!el)return;
+  if(!pal.length||!grid.length){
+    el.innerHTML='<span style="font-size:10px;color:var(--dim)">Carga un diseño</span>';
+    return;
+  }
+  let html='';
+  pal.forEach(p=>{
+    // Celdas de este color en el dibujo
+    const cells=grid.flat().filter(c=>c===p.id).length;
+    if(!cells)return;
+    // Hormigas asignadas en cajas de este color
+    const assigned=boxes.filter(b=>b.colorId===p.id).reduce((s,b)=>s+b.n,0);
+    const pending=cells-assigned;   // positivo=faltan, negativo=exceso, 0=perfecto
+    const pct=Math.min(100,Math.max(0,Math.round(assigned/cells*100)));
+    const pColor=pending===0?'#22c55e':pending>0?'#f97316':'#ef4444';
+    const pLabel=pending>0?`+${pending}`:String(pending);
+    const pTitle=pending===0?'Completo':pending>0?`Faltan ${pending} hormigas`:`Exceso de ${-pending} hormigas`;
+    html+=`<div class="cc-row" title="${p.hex} — ${cells} celdas | ${assigned} asignadas | ${pTitle}">
+      <span class="cc-dot" style="background:${p.hex}"></span>
+      <div class="cc-bar-wrap"><div class="cc-bar" style="width:${pct}%;background:${p.hex}"></div></div>
+      <span class="cc-stat" style="color:${pColor}">${pLabel}</span>
+    </div>`;
+  });
+  el.innerHTML=html||'<span style="font-size:10px;color:var(--dim)">Sin colores en el dibujo</span>';
+}
+
+// ── Añadir caja en una columna específica ─────────────────────────────────
+
+// Siguiente nº de orden libre
+function nextBoxOrder(){ return boxes.reduce((m,b)=>Math.max(m,b.order||0),0)+1; }
+
+// Editar manualmente el nº de orden de desbloqueo de una caja
+function editBoxOrder(i){
+  const b=boxes[i]; if(!b)return;
+  const v=prompt(`Orden de desbloqueo para la caja de color #${b.colorId} (${b.n} hormigas):`,b.order??nextBoxOrder());
+  if(v===null)return;
+  const n=parseInt(v,10);
+  if(!(n>=1)){showToast('⚠ Debe ser un número ≥ 1');return;}
+  b.order=n;
+  renderBoxPanel();scheduleAutoSave();
+}
+
+// Añade una caja en la celda (col,row) indicada de la cuadrícula
+function addBoxAt(col,row){
+  if(!pal.length){showToast('⚠ Añade colores a la paleta primero');return;}
+  ensureBoxPositions();
+  // Color: el de la caja más cercana por encima en la misma columna, o el primero de la paleta
+  const above=boxes.filter(b=>b.col===col&&b.row<row).sort((a,b)=>b.row-a.row)[0];
+  const colorId=above?above.colorId:pal[0].id;
+  boxes.push({uid:++_bxUid,colorId,n:1,diff:'normal',col,row,order:nextBoxOrder()});
+  renderBoxPanel();scheduleAutoSave();
+}
+
+// Compatibilidad: añadir al final de una columna
+function addBoxToCol(targetCol){
+  ensureBoxPositions();
+  const last=boxes.filter(b=>b.col===targetCol).reduce((m,b)=>Math.max(m,b.row),-1);
+  addBoxAt(targetCol,last+1);
+}
+
+// ── Edición del número de hormigas ───────────────────────────────────────
+// Al enfocar el input: borrar número del canvas (lo muestra el input)
+function bxInputFocus(e,i){
+  e.stopPropagation();
+  redrawOneCanvas(boxes[i], false);   // sin número en canvas
+}
+// Al salir del input: guardar valor y redibujar número en canvas
+function bxInputBlur(e,i){
+  const n=Math.max(1,Math.min(BOX_MAX_ANTS,parseInt(e.target.value)||1));
+  boxes[i].n=n;
+  e.target.value=n;
+  redrawOneCanvas(boxes[i], true);    // con número en canvas
+  renderColorCounter();
+  scheduleAutoSave();
+}
+
+// ── Drag-and-drop para reordenar cajas ────────────────────────────────────
+let _bxDragIdx=-1;
+
+function bxDragStart(e,i){
+  _bxDragIdx=i;
+  e.dataTransfer.effectAllowed='move';
+  // Agregar clase con pequeño delay para que el ghost image se vea correctamente
+  setTimeout(()=>{
+    const el=document.querySelector(`.bxcard[data-idx="${i}"]`);
+    if(el)el.classList.add('dragging');
+  },0);
+}
+
+function bxDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('dragover');
+}
+
+function bxDragLeave(e){
+  e.currentTarget.classList.remove('dragover');
+}
+
+function bxDragEnd(e){
+  document.querySelectorAll('.bxcard.dragging').forEach(el=>el.classList.remove('dragging'));
+  document.querySelectorAll('.bxcard.dragover').forEach(el=>el.classList.remove('dragover'));
+  _bxDragIdx=-1;
+}
+
+// Soltar sobre otra caja → intercambian posiciones
+function bxDrop(e,i){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  if(_bxDragIdx<0||_bxDragIdx===i)return;
+  const a=boxes[_bxDragIdx], b=boxes[i];
+  [a.col,b.col]=[b.col,a.col];
+  [a.row,b.row]=[b.row,a.row];
+  _bxDragIdx=-1;
+  renderBoxPanel();
+  scheduleAutoSave();
+  showToast(`⇄ Cajas intercambiadas`);
+}
+
+// Soltar sobre una celda vacía → la caja se mueve a esa celda (cualquier columna/fila)
+function bxDropCell(e,col,row){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  if(_bxDragIdx<0)return;
+  const b=boxes[_bxDragIdx];
+  b.col=col;b.row=row;
+  _bxDragIdx=-1;
+  renderBoxPanel();
+  scheduleAutoSave();
+  showToast(`↔ Caja movida a columna ${col+1}, fila ${row+1}`);
+}
+
 </script>
 
 <!-- ── Modal: cargar desde código JS ──────────────────────────────────── -->
