@@ -1,0 +1,14 @@
+feat: hormiga estilo caricatura 3D + soporte de sprite sheet (selector ANT_STYLE)
+
+- src/config/antStyle.js: ANT_STYLE = 'classic' | 'toon' | 'sprite'
+- 'toon' (por defecto): cabeza grande, abdomen segmentado, ojos grandes,
+  antenas con bolita y seis patas articuladas; mismo color de caja y misma
+  animación de marcha en trípode
+- 'classic': la hormiga procedural anterior se conserva intacta (makeAntSpriteClassic)
+- 'sprite': carga public/ants/ant_sheet.png (4x3, 12 frames) con frame por
+  distancia recorrida; si falta el PNG usa 'toon'
+- window.__game expuesto para depuración
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

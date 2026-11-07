@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import * as LevelData from '../data/LevelData.js';
 import { CUBE_COLORS, lightenColor, darkenColor } from '../data/LevelData.js';
+import { ANT_STYLE, ANT_SHEET } from '../config/antStyle.js';
 
 // Niveles disponibles: todas las exportaciones LEVEL_N de LevelData.js, ordenadas por N
 export function getLevels() {
@@ -1672,10 +1673,21 @@ export class GameScene extends Phaser.Scene {
         g.strokeRoundedRect(-half, -half, s, s, r);
     }
 
-    // ── Ant sprite — hormiga generada con Graphics (color del colorId) ─────────
-    // Devuelve un Container para que el cubo cargado viaje con la hormiga.
+    // ── Ant sprite — despachador según ANT_STYLE (src/config/antStyle.js) ──────
+    // Todas las variantes devuelven un Container con la misma interfaz:
+    //   legsA, legsB, bodyGfx, abdomenGfx, headGfx, shadowGfx, body (sub-contenedor)
+    // para que _animateWalk / _resetWalk y el cubo cargado funcionen igual.
     // La cabeza apunta hacia arriba (-y) → atan2(dy,dx)+PI/2 orienta correctamente.
     makeAntSprite(x, y, colorId = null) {
+        if (ANT_STYLE === 'sprite' && this.textures.exists(ANT_SHEET.key)) {
+            return this.makeAntSpriteSheet(x, y, colorId);
+        }
+        if (ANT_STYLE === 'classic') return this.makeAntSpriteClassic(x, y, colorId);
+        return this.makeAntSpriteToon(x, y, colorId);
+    }
+
+    // ── Versión CLÁSICA (procedural original) — se conserva intacta ─────────────
+    makeAntSpriteClassic(x, y, colorId = null) {
         const cont = this.add.container(x, y).setDepth(15);
 
         // Cuerpo dentro de un sub-contenedor escalado (estilo caricatura, más grande).
@@ -1733,6 +1745,210 @@ export class GameScene extends Phaser.Scene {
         return cont;
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // ── Versión CARICATURA 3D (inspirada en la hormiga amarilla de referencia) ──
+    // Cabeza grande y redonda, abdomen segmentado, ojos grandes, antenas curvas con
+    // bolita y seis patas articuladas (fémur + tibia). Vista desde atrás/arriba:
+    // la hormiga camina hacia el norte, se ve su espalda y apenas los ojos a los lados.
+    // Colores: derivados del color de la caja (identidad del color en el juego),
+    // cabeza más clara, abdomen con anillos más oscuros, patas marrón oscuro.
+    // ══════════════════════════════════════════════════════════════════════════
+    _toonPalette(colorId) {
+        const base = this._antColor(colorId);
+        return {
+            head   : lightenColor(base, 34),     // cabeza más clara y brillante
+            body   : base,                        // tórax
+            abdomen: darkenColor(base, 10),       // abdomen ligeramente más cálido/oscuro
+            ring   : darkenColor(base, 52),       // anillos del abdomen
+            shadeL : darkenColor(base, 48),       // sombra lateral abajo-izquierda
+            hi     : lightenColor(base, 70),      // brillo especular
+            leg    : 0x5A3A1E,                    // patas marrón oscuro
+            legHi  : 0x8A5A30,
+            outline: 0x2A1A0C,
+            eyeIris: 0x5A3A1E,
+        };
+    }
+
+    // Esfera "3D" cartoon: base oscura + cuerpo + brillo doble arriba-derecha + contorno
+    _toonBall(g, cx, cy, rx, ry, fill, pal, hi = 0.48) {
+        g.fillStyle(pal.shadeL, 1);
+        g.fillEllipse(cx, cy, rx * 2, ry * 2);
+        g.fillStyle(fill, 1);
+        g.fillEllipse(cx + rx * 0.09, cy - ry * 0.09, rx * 1.84, ry * 1.84);
+        g.fillStyle(pal.hi, 0.55);
+        g.fillEllipse(cx + rx * 0.30, cy - ry * 0.34, rx * hi * 1.3, ry * hi * 1.3);
+        g.fillStyle(0xFFFFFF, 0.65);
+        g.fillEllipse(cx + rx * 0.38, cy - ry * 0.44, rx * hi * 0.5, ry * hi * 0.5);
+        g.lineStyle(1.3, pal.outline, 1);
+        g.strokeEllipse(cx, cy, rx * 2, ry * 2);
+    }
+
+    // Pata articulada: cadera (hx,hy) → rodilla (kx,ky) → pie (fx,fy), con contorno
+    _toonLeg(g, pal, hx, hy, kx, ky, fx, fy) {
+        g.lineStyle(2.6, pal.outline, 1);
+        g.beginPath(); g.moveTo(hx, hy); g.lineTo(kx, ky); g.lineTo(fx, fy); g.strokePath();
+        g.lineStyle(1.4, pal.leg, 1);
+        g.beginPath(); g.moveTo(hx, hy); g.lineTo(kx, ky); g.lineTo(fx, fy); g.strokePath();
+        g.lineStyle(0.7, pal.legHi, 0.8);
+        g.beginPath(); g.moveTo(hx, hy); g.lineTo(kx, ky); g.strokePath();
+        // Rodilla y pie
+        g.fillStyle(pal.outline, 1);
+        g.fillCircle(kx, ky, 1.1);
+        g.fillCircle(fx, fy, 1.3);
+    }
+
+    // Trípode de patas articuladas: 'A' = del-izq, tras-izq, med-der · 'B' = las otras tres
+    _drawToonLegs(g, colorId, set) {
+        const pal = this._toonPalette(colorId);
+        // [cadera, rodilla, pie] — la rodilla va hacia arriba/afuera para que se vea articulada
+        const L = {
+            frontL : [-2.6, -3.2, -6.5, -7.0, -9.5, -5.0],
+            midL   : [-3.0,  0.0, -7.5, -1.6, -10.5,  1.2],
+            rearL  : [-2.6,  3.2, -6.5,  5.6, -9.0,  8.8],
+            frontR : [ 2.6, -3.2,  6.5, -7.0,  9.5, -5.0],
+            midR   : [ 3.0,  0.0,  7.5, -1.6, 10.5,  1.2],
+            rearR  : [ 2.6,  3.2,  6.5,  5.6,  9.0,  8.8],
+        };
+        const pick = set === 'A' ? [L.frontL, L.rearL, L.midR] : [L.frontR, L.rearR, L.midL];
+        pick.forEach(p => this._toonLeg(g, pal, ...p));
+    }
+
+    // Abdomen grande y segmentado (pivote en la cintura, y=0; cuelga hacia +y)
+    _drawToonAbdomen(g, colorId) {
+        const pal = this._toonPalette(colorId);
+        this._toonBall(g, 0, 6.5, 6.2, 7.6, pal.abdomen, pal, 0.5);
+        // Anillos de segmentación (arcos inferiores, más oscuros)
+        g.lineStyle(1.1, pal.ring, 0.75);
+        for (const [cy, r] of [[6.5, 4.2], [6.5, 5.6]]) {
+            g.beginPath();
+            g.arc(0, cy, r, Math.PI * 0.18, Math.PI * 0.82, false);
+            g.strokePath();
+        }
+    }
+
+    // Tórax (unión entre cabeza y abdomen)
+    _drawToonThorax(g, colorId) {
+        const pal = this._toonPalette(colorId);
+        this._toonBall(g, 0, -1.6, 3.6, 3.0, pal.body, pal, 0.42);
+    }
+
+    // Cabeza grande con ojos laterales (vista desde atrás) y antenas curvas con bolita.
+    // El Graphics se coloca en y=-4.5 (cuello) → coordenadas desplazadas +4.5.
+    _drawToonHead(g, colorId) {
+        const pal = this._toonPalette(colorId);
+        const P = 4.5;
+        const hy = -9.2 + P;         // centro de la cabeza
+        const R  = 6.0;              // radio de la cabeza
+
+        // Antenas: curva suave hacia afuera-arriba terminada en bolita
+        const antenna = (dir) => {
+            const x0 = dir * 2.2, y0 = hy - R * 0.75;
+            const c1x = dir * 5.0, c1y = hy - R - 4.5;
+            const x1 = dir * 7.2, y1 = hy - R - 7.5;
+            for (const [w, col] of [[2.8, pal.outline], [1.4, pal.leg]]) {
+                g.lineStyle(w, col, 1);
+                g.beginPath(); g.moveTo(x0, y0);
+                // curva cuadrática aproximada con 8 segmentos
+                for (let t = 0.125; t <= 1.001; t += 0.125) {
+                    const mt = 1 - t;
+                    g.lineTo(mt * mt * x0 + 2 * mt * t * c1x + t * t * x1,
+                             mt * mt * y0 + 2 * mt * t * c1y + t * t * y1);
+                }
+                g.strokePath();
+            }
+            // Bolita de la antena
+            g.fillStyle(pal.outline, 1); g.fillCircle(x1, y1, 2.3);
+            g.fillStyle(pal.head, 1);    g.fillCircle(x1 + 0.2, y1 - 0.2, 1.7);
+            g.fillStyle(0xFFFFFF, 0.7);  g.fillCircle(x1 + 0.7, y1 - 0.8, 0.6);
+        };
+        antenna(-1); antenna(1);
+
+        // Cabeza (esfera grande y brillante)
+        this._toonBall(g, 0, hy, R, R, pal.head, pal, 0.5);
+
+        // Ojos grandes a los lados (vista desde atrás: solo asoma el borde exterior)
+        for (const dir of [-1, 1]) {
+            const ex = dir * (R * 0.78), ey = hy - 0.6;
+            g.fillStyle(pal.outline, 1);  g.fillEllipse(ex, ey, 3.4, 4.6);          // contorno
+            g.fillStyle(0xFFFFFF, 1);     g.fillEllipse(ex, ey, 2.6, 3.8);          // esclerótica
+            g.fillStyle(pal.eyeIris, 1);  g.fillEllipse(ex + dir * 0.6, ey + 0.3, 1.5, 2.4); // iris
+            g.fillStyle(0x111111, 1);     g.fillEllipse(ex + dir * 0.7, ey + 0.4, 0.8, 1.3); // pupila
+            g.fillStyle(0xFFFFFF, 0.95);  g.fillCircle(ex + dir * 0.3, ey - 0.6, 0.45);      // brillo
+        }
+        // Mejillas rosadas sutiles
+        g.fillStyle(0xFF8A80, 0.35);
+        g.fillEllipse(-R * 0.55, hy + 2.2, 2.2, 1.2);
+        g.fillEllipse( R * 0.55, hy + 2.2, 2.2, 1.2);
+    }
+
+    makeAntSpriteToon(x, y, colorId = null) {
+        const cont = this.add.container(x, y).setDepth(15);
+        const ANT_SCALE = 1.25;
+        const body = this.add.container(0, 0).setScale(ANT_SCALE);
+        cont.add(body);
+
+        // Sombra suave degradada (igual que la clásica, algo más ancha por el cuerpo mayor)
+        const shadowGfx = this.add.graphics();
+        const SX = -1.5, SY = 4.0;
+        [[26, 13, 0.05], [21, 10.5, 0.07], [16, 8, 0.09], [11, 5.5, 0.12]].forEach(([w, h, a]) => {
+            shadowGfx.fillStyle(0x000000, a);
+            shadowGfx.fillEllipse(SX, SY, w, h);
+        });
+        body.add(shadowGfx);
+        cont.shadowGfx = shadowGfx;
+
+        // Patas articuladas en dos trípodes
+        const legsA = this.add.graphics(); this._drawToonLegs(legsA, colorId, 'A'); body.add(legsA);
+        const legsB = this.add.graphics(); this._drawToonLegs(legsB, colorId, 'B'); body.add(legsB);
+
+        // Cuerpo: abdomen (pivote cintura) → tórax → cabeza (pivote cuello)
+        const abdomenGfx = this.add.graphics(); this._drawToonAbdomen(abdomenGfx, colorId); body.add(abdomenGfx);
+        const thoraxGfx  = this.add.graphics(); this._drawToonThorax(thoraxGfx, colorId);   body.add(thoraxGfx);
+        const headGfx    = this.add.graphics(); headGfx.y = -4.5; this._drawToonHead(headGfx, colorId); body.add(headGfx);
+
+        cont.body       = body;
+        cont.legsA      = legsA;
+        cont.legsB      = legsB;
+        cont.bodyGfx    = thoraxGfx;
+        cont.abdomenGfx = abdomenGfx;
+        cont.headGfx    = headGfx;
+        return cont;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ── Versión SPRITE SHEET (PNG externo) ─────────────────────────────────────
+    // Usa la textura ANT_SHEET.key cargada en PreloadScene. El frame se elige por
+    // distancia recorrida (ver _animateWalk) para que la marcha vaya al ritmo real.
+    // La hormiga se tiñe con el color de su caja (tint) para mantener la identidad
+    // de color en el juego.
+    // ══════════════════════════════════════════════════════════════════════════
+    makeAntSpriteSheet(x, y, colorId = null) {
+        const cont = this.add.container(x, y).setDepth(15);
+        const body = this.add.container(0, 0);
+        cont.add(body);
+
+        const shadowGfx = this.add.graphics();
+        [[26, 13, 0.05], [21, 10.5, 0.07], [16, 8, 0.09], [11, 5.5, 0.12]].forEach(([w, h, a]) => {
+            shadowGfx.fillStyle(0x000000, a);
+            shadowGfx.fillEllipse(-1.5, 4, w, h);
+        });
+        body.add(shadowGfx);
+        cont.shadowGfx = shadowGfx;
+
+        const spr = this.add.sprite(0, 0, ANT_SHEET.key, 0);
+        const frameH = spr.height || 1;
+        spr.setScale(ANT_SHEET.displayH / frameH);
+        if (colorId !== null && colorId !== undefined && activeCubeColors[colorId]) {
+            spr.setTint(activeCubeColors[colorId]);
+        }
+        body.add(spr);
+
+        cont.body     = body;
+        cont.sheetSpr = spr;      // _animateWalk elige el frame según la distancia
+        cont.bodyGfx  = spr;      // compatibilidad con _animateWalk/_resetWalk (rebote)
+        return cont;
+    }
+
     // Color base de la hormiga según colorId (verde oliva por defecto)
     _antColor(colorId) {
         return (colorId !== null && colorId !== undefined && activeCubeColors[colorId])
@@ -1762,6 +1978,17 @@ export class GameScene extends Phaser.Scene {
     // por ciclo a 60 FPS: el contoneo se ve fluido y legible (a 7 ciclos/s parecía
     // una vibración). Las patas van al doble de frecuencia que el cuerpo.
     _animateWalk(ant, dist) {
+        // ── Modo sprite sheet: el frame avanza con la distancia recorrida ─────────
+        if (ant.sheetSpr) {
+            const STRIDE = 40;                                   // px por ciclo de contoneo
+            const cycleLen = STRIDE * ANT_SHEET.strideCycles;    // px por vuelta de la hoja
+            const f = Math.floor((dist % cycleLen) / cycleLen * ANT_SHEET.frameCount);
+            ant.sheetSpr.setFrame(Math.min(ANT_SHEET.frameCount - 1, Math.max(0, f)));
+            const bob = -Math.abs(Math.cos((dist / STRIDE) * Math.PI * 4)) * 0.5;
+            ant.sheetSpr.y = bob;
+            if (ant.shadowGfx) { const k = 1 + bob * 0.06; ant.shadowGfx.setScale(k, k); ant.shadowGfx.alpha = 0.9 + bob * 0.2; }
+            return;
+        }
         if (!ant.legsA || !ant.legsB || !ant.bodyGfx) return;
         // Marcha sencilla y natural: ~4 contoneos/s (≈15 frames por ciclo a 60 FPS)
         // y 2 zancadas de patas por contoneo (~8 pasos/s), amplitudes moderadas.
@@ -1801,6 +2028,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     _resetWalk(ant) {
+        if (ant.sheetSpr) {
+            ant.sheetSpr.setFrame(0); ant.sheetSpr.y = 0;
+            if (ant.shadowGfx) { ant.shadowGfx.setScale(1); ant.shadowGfx.alpha = 1; }
+            return;
+        }
         if (!ant.legsA || !ant.legsB || !ant.bodyGfx) return;
         ant.legsA.rotation = 0;
         ant.legsB.rotation = 0;

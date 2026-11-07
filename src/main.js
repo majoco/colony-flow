@@ -35,4 +35,6 @@ const config = {
     },
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+// Referencia global para depuración desde la consola del navegador (p. ej. window.__game.scene)
+window.__game = game;

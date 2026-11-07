@@ -6,6 +6,7 @@ import antH2 from '../assets/ants/h2.png';
 import antH3 from '../assets/ants/h3.png';
 import antH4 from '../assets/ants/h4.png';
 import antH5 from '../assets/ants/h5.png';
+import { ANT_STYLE, ANT_SHEET } from '../config/antStyle.js';
 
 export class PreloadScene extends Phaser.Scene {
     constructor() {
@@ -13,6 +14,20 @@ export class PreloadScene extends Phaser.Scene {
     }
 
     preload() {
+        // Sprite sheet de la hormiga (opcional): public/ants/ant_sheet.png.
+        // Se carga solo en modo 'sprite'. Si el archivo no existe, Phaser avisa en consola
+        // y GameScene usa la hormiga procedural automáticamente.
+        if (ANT_STYLE === 'sprite') {
+            this.load.image(ANT_SHEET.key + '_probe', 'ants/ant_sheet.png');
+            this.load.once('filecomplete-image-' + ANT_SHEET.key + '_probe', () => {
+                // Conocido el tamaño real del PNG, registrar la hoja con frames iguales
+                const img = this.textures.get(ANT_SHEET.key + '_probe').getSourceImage();
+                const fw = Math.floor(img.width / ANT_SHEET.cols);
+                const fh = Math.floor(img.height / ANT_SHEET.rows);
+                this.load.spritesheet(ANT_SHEET.key, 'ants/ant_sheet.png', { frameWidth: fw, frameHeight: fh });
+            });
+        }
+
         this.load.image('ant', antUrl);
         // Frames de animación de caminado (h0–h5, patas en distintas posiciones)
         this.load.image('ant_h0', antH0);
