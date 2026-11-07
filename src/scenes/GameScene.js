@@ -2147,8 +2147,77 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
+        // Ola gelatinosa en cubos vecinos (antes de borrarlo para leer sus colores)
+        this._jellyNeighbors(r, c);
+
         this.board[r][c] = 0;
         this.redrawBoard();
+    }
+
+    // ── Efecto gelatina: ola radial en los cubos que rodean al cubo eliminado ──
+    // Crea contenedores temporales sobre los vecinos (radio MAX_D celdas), cada uno
+    // con una copia del cubo + destello de brillo 3D en la cara superior.
+    // La animación es squish+stretch retardado por distancia (efecto de ola).
+    _jellyNeighbors(r, c) {
+        const MAX_D = 4;
+        for (let dr = -MAX_D; dr <= MAX_D; dr++) {
+            for (let dc = -MAX_D; dc <= MAX_D; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const nr = r + dr, nc = c + dc;
+                if (nr < 0 || nr >= BROWS || nc < 0 || nc >= BCOLS) continue;
+                const cid = this.board[nr][nc];
+                if (!cid) continue;
+
+                const dist = Math.abs(dr) + Math.abs(dc);
+                const amp  = Math.max(0.03, 0.22 - dist * 0.042);  // amplitud decrece con distancia
+                const delay = dist * 36;                              // retraso = ola radial
+
+                // Contenedor centrado en la celda vecina
+                const cx = BOARD_X + nc * CELL + CELL / 2;
+                const cy = BOARD_Y + nr * CELL + CELL / 2;
+                const cont = this.add.container(cx, cy).setDepth(11);
+
+                // Dibuja una copia del cubo con origen en el centro del container
+                const g = this.add.graphics();
+                this.drawCube(g, -CELL / 2, -CELL / 2, cid);
+
+                // Destello de brillo en la cara superior (cara 3D iluminada)
+                const hl = this.add.graphics();
+                const rad = CELL >= 10 ? 3 : 2;
+                hl.fillStyle(0xFFFFFF, 0.65);
+                hl.fillRoundedRect(-CELL / 2 + 1, -CELL / 2 + 1, CELL - 2, Math.max(2, CELL * 0.38), rad);
+
+                cont.add([g, hl]);
+
+                // Squish vertical + stretch horizontal (como gelatina al recibir una onda)
+                this.tweens.add({
+                    targets: cont,
+                    delay,
+                    scaleX: 1 + amp * 0.65,
+                    scaleY: 1 - amp * 0.42,
+                    duration: 85,
+                    ease: 'Quad.easeOut',
+                    yoyo: true,
+                    onComplete: () => {
+                        // Rebote secundario más suave
+                        this.tweens.add({
+                            targets: cont,
+                            scaleX: 1 + amp * 0.28,
+                            scaleY: 1 - amp * 0.18,
+                            duration: 60,
+                            ease: 'Quad.easeOut',
+                            yoyo: true,
+                            onComplete: () => cont.destroy(),
+                        });
+                    },
+                });
+
+                // El brillo se desvanece rápidamente durante el primer pico
+                this.tweens.add({
+                    targets: hl, delay, alpha: 0, duration: 190, ease: 'Quad.easeIn',
+                });
+            }
+        }
     }
 
     // ── Slot cleanup ───────────────────────────────────────────────────────────

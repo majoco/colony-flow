@@ -100,30 +100,37 @@ export class PreloadScene extends Phaser.Scene {
     }
 
     createLogo(W, H) {
-        // Sparkle star
-        this.add.text(W / 2 + 85, H / 2 - 90, '✦', {
-            fontSize: '30px',
-            color: '#FFD700',
-            stroke: '#E65100',
-            strokeThickness: 2,
+        // Destellos decorativos alrededor del logo
+        this.add.text(W / 2 + 108, H / 2 - 48, '✦', {
+            fontSize: '24px', color: '#FFD700', stroke: '#E65100', strokeThickness: 2,
+        }).setOrigin(0.5);
+        this.add.text(W / 2 - 112, H / 2 + 44, '✦', {
+            fontSize: '18px', color: '#FFD700', stroke: '#E65100', strokeThickness: 2,
         }).setOrigin(0.5);
 
-        // COLONY text — blue bold with white outline
-        this.add.text(W / 2, H / 2 - 42, 'COLONY', {
-            fontSize: '66px',
+        // Sombra del texto (desplazada 4 px abajo-derecha) para dar volumen
+        this.add.text(W / 2 + 4, H / 2 + 4, 'BACHACOS', {
+            fontSize: '72px',
             fontStyle: 'bold',
-            color: '#FFFFFF',
-            stroke: '#1565C0',
-            strokeThickness: 10,
+            color: '#7A3800',
         }).setOrigin(0.5);
 
-        // FLOW text — yellow-orange
-        this.add.text(W / 2, H / 2 + 36, 'FLOW', {
-            fontSize: '66px',
+        // Texto principal: amarillo-naranja con contorno grueso
+        this.add.text(W / 2, H / 2, 'BACHACOS', {
+            fontSize: '72px',
             fontStyle: 'bold',
             color: '#FFD600',
             stroke: '#E65100',
-            strokeThickness: 10,
+            strokeThickness: 11,
+        }).setOrigin(0.5);
+
+        // Subtítulo pequeño
+        this.add.text(W / 2, H / 2 + 54, 'Ants', {
+            fontSize: '28px',
+            fontStyle: 'bold italic',
+            color: '#FFF176',
+            stroke: '#E65100',
+            strokeThickness: 5,
         }).setOrigin(0.5);
     }
 

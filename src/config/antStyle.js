@@ -5,7 +5,7 @@
 //               segmentado, ojos grandes, patas articuladas) — color de la caja
 //   'sprite'  → sprite sheet animado (PNG en src/assets/ants/ant_sheet.png) teñido
 //               con el color de la caja. Si el archivo no existe se usa 'toon'.
-export const ANT_STYLE = 'toon';
+export const ANT_STYLE = 'classic';
 
 // Configuración del sprite sheet (solo para ANT_STYLE = 'sprite').
 // El PNG debe ser una cuadrícula de SHEET_COLS × SHEET_ROWS frames iguales, con la

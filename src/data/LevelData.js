@@ -16,7 +16,7 @@ export function darkenColor(hex, amt) {
     return (r << 16) | (g << 8) | b;
 }
 
-// ── Level 1 — 30×30 generado con Colony Flow Editor ──────────────────────────
+// ── Level 1 — 30×30 generado con Ants Editor ─────────────────────────────────
 export const LEVEL_1 = {
     id: 1,
     name: 'Nivel 1',
@@ -127,7 +127,7 @@ export const LEVEL_1 = {
     ],
 };
 
-// ── Level 2 — 30×30 generado con Colony Flow Editor ──────────────────────────
+// ── Level 2 — 30×30 generado con Ants Editor ─────────────────────────────────
 export const LEVEL_2 = {
     id: 2,
     name: 'Nivel 2',
