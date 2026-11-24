@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getLevels } from './GameScene.js';
+import { getMaxUnlockedLevel } from '../services/PlayerProfile.js';
 
 function lighten(hex, amt) {
     const r = Math.min(255, ((hex >> 16) & 0xFF) + amt);
@@ -409,39 +410,59 @@ export class MenuScene extends Phaser.Scene {
             [0xC62828, 0xE53935, 0xB71C1C],
         ];
         const [colorMain, colorShine, colorShadow] = palette[(lv.id - 1) % palette.length];
+        const locked = lv.id > getMaxUnlockedLevel();
 
+        // La sombra queda fija; el botón (cara + textos) vive en un Container centrado
+        // en (bx,by) para que la escala del "press" ocurra desde su propio centro.
         const shadowG = this.add.graphics();
-        shadowG.fillStyle(colorShadow, 0.8);
+        shadowG.fillStyle(locked ? 0x333333 : colorShadow, 0.8);
         shadowG.fillRoundedRect(bx - bw / 2, by - bh / 2 + 4, bw, bh, rad);
 
         const btnG = this.add.graphics();
-        btnG.fillStyle(colorMain);
-        btnG.fillRoundedRect(bx - bw / 2, by - bh / 2, bw, bh, rad);
-        btnG.fillStyle(colorShine);
-        btnG.fillRoundedRect(bx - bw / 2 + 3, by - bh / 2 + 3, bw - 6, bh * 0.34, (bh * 0.34) / 2);
+        btnG.fillStyle(locked ? 0x555555 : colorMain);
+        btnG.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, rad);
+        btnG.fillStyle(locked ? 0x777777 : colorShine);
+        btnG.fillRoundedRect(-bw / 2 + 3, -bh / 2 + 3, bw - 6, bh * 0.34, (bh * 0.34) / 2);
 
-        const txt = this.add.text(bx, by - 5, String(lv.id), {
-            fontSize: '20px', fontStyle: 'bold',
-            color: '#FFFFFF', stroke: colorShadow, strokeThickness: 3,
+        const txt = this.add.text(0, locked ? 0 : -5, locked ? '🔒' : String(lv.id), {
+            fontSize: locked ? '18px' : '20px', fontStyle: 'bold',
+            color: locked ? '#AAAAAA' : '#FFFFFF',
+            stroke: locked ? '#222222' : colorShadow, strokeThickness: 3,
         }).setOrigin(0.5);
-        const sub = this.add.text(bx, by + 13, `${lv.data.cols}×${lv.data.rows}`, {
+        const sub = locked ? null : this.add.text(0, 13, `${lv.data.cols}×${lv.data.rows}`, {
             fontSize: '9px', color: '#E8F5E9',
         }).setOrigin(0.5);
 
-        btnG.setInteractive(
-            new Phaser.Geom.Rectangle(bx - bw / 2, by - bh / 2, bw, bh),
-            Phaser.Geom.Rectangle.Contains
-        );
-        btnG.on('pointerover', () => btnG.setAlpha(0.9));
-        btnG.on('pointerout',  () => btnG.setAlpha(1));
-        btnG.on('pointerdown', () => {
-            this.tweens.add({
-                targets: [btnG, txt, sub], scaleX: 0.93, scaleY: 0.93,
-                duration: 90, yoyo: true,
-                onComplete: () => this.scene.start('Game', { levelId: lv.id }),
-            });
+        const children = sub ? [btnG, txt, sub] : [btnG, txt];
+        const btn = this.add.container(bx, by, children);
+        btn.setSize(bw, bh).setInteractive({ useHandCursor: !locked });
+        if (!locked) {
+            btn.on('pointerover', () => btn.setAlpha(0.9));
+            btn.on('pointerout',  () => btn.setAlpha(1));
+            btn.on('pointerdown', () => this._pressButton(btn, () => this.scene.start('Game', { levelId: lv.id })));
+        }
+        this.levelGrid.add([shadowG, btn]);
+    }
+
+    // Animación de botón presionado: se hunde (hacia la sombra) y rebota elástico.
+    // `onDone` se ejecuta en el punto de máximo hundimiento para que la transición
+    // se sienta inmediata.
+    _pressButton(btn, onDone) {
+        if (btn._pressing) return;
+        btn._pressing = true;
+        const y0 = btn.y;
+        this.tweens.add({
+            targets: btn, scaleX: 0.88, scaleY: 0.88, y: y0 + 3,
+            duration: 70, ease: 'Quad.easeOut',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: btn, scaleX: 1, scaleY: 1, y: y0,
+                    duration: 320, ease: 'Elastic.easeOut', easeParams: [1.2, 0.5],
+                    onComplete: () => { btn._pressing = false; },
+                });
+                if (onDone) this.time.delayedCall(200, onDone);   // deja ver el rebote
+            },
         });
-        this.levelGrid.add([shadowG, btnG, txt, sub]);
     }
 
     _makeLevelBtn(bx, by, label, sublabel, levelId, _W, _H) {
@@ -457,38 +478,31 @@ export class MenuScene extends Phaser.Scene {
         shadowG.fillStyle(colorShadow, 0.8);
         shadowG.fillRoundedRect(bx - bw / 2, by - bh / 2 + 5, bw, bh, rad);
 
-        // Botón
+        // Botón (cara + textos) en un Container centrado → el "press" escala desde su centro
         const btnG = this.add.graphics();
         btnG.fillStyle(colorMain);
-        btnG.fillRoundedRect(bx - bw / 2, by - bh / 2, bw, bh, rad);
+        btnG.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, rad);
         btnG.fillStyle(colorShine);
-        btnG.fillRoundedRect(bx - bw / 2 + 4, by - bh / 2 + 4, bw - 8, bh * 0.36, (bh * 0.36) / 2);
+        btnG.fillRoundedRect(-bw / 2 + 4, -bh / 2 + 4, bw - 8, bh * 0.36, (bh * 0.36) / 2);
 
         // Texto principal
-        const txt = this.add.text(bx, by - 5, label, {
+        const txt = this.add.text(0, -5, label, {
             fontSize: '22px', fontStyle: 'bold',
             color: '#FFFFFF', stroke: colorShadow, strokeThickness: 3,
-        }).setOrigin(0.5).setDepth(2);
+        }).setOrigin(0.5);
 
         // Sub-etiqueta (tamaño del tablero)
-        this.add.text(bx, by + 13, sublabel, {
+        const sub = this.add.text(0, 13, sublabel, {
             fontSize: '13px', color: '#CCFFCC',
-        }).setOrigin(0.5).setDepth(2);
+        }).setOrigin(0.5);
+
+        const btn = this.add.container(bx, by, [btnG, txt, sub]).setDepth(2);
 
         // Interactividad
-        btnG.setInteractive(
-            new Phaser.Geom.Rectangle(bx - bw / 2, by - bh / 2, bw, bh),
-            Phaser.Geom.Rectangle.Contains
-        );
-        btnG.on('pointerover',  () => { btnG.setAlpha(0.9); });
-        btnG.on('pointerout',   () => { btnG.setAlpha(1);   });
-        btnG.on('pointerdown',  () => {
-            this.tweens.add({
-                targets: [btnG, txt], scaleX: 0.93, scaleY: 0.93,
-                duration: 90, yoyo: true,
-                onComplete: () => this.scene.start('Game', { levelId }),
-            });
-        });
+        btn.setSize(bw, bh).setInteractive({ useHandCursor: true });
+        btn.on('pointerover',  () => { btn.setAlpha(0.9); });
+        btn.on('pointerout',   () => { btn.setAlpha(1);   });
+        btn.on('pointerdown',  () => this._pressButton(btn, () => this.scene.start('Game', { levelId })));
     }
 
     // ── Bottom Navigation ──────────────────────────────────────────────────────

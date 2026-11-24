@@ -87,6 +87,16 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--accent)}
 
 /* ── Right Sidebar ─────────────────────────────────── */
 .rsidebar{width:282px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.rsidebar .sec{flex-shrink:0}   /* ninguna sección se aplasta: el sidebar entero hace scroll */
+/* Configuración de cajas por color */
+.bxcfg-head,.bxcfg-row{display:grid;grid-template-columns:1fr 36px 46px 46px 46px;gap:5px;align-items:center}
+.bxcfg-head{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;padding:0 2px 4px}
+.bxcfg-row{padding:3px 2px;border-top:1px solid var(--border);font-size:11px}
+.bxcfg-row .sw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.25);flex-shrink:0}
+.bxcfg-row .cl{display:flex;align-items:center;gap:6px;min-width:0}
+.bxcfg-row .cl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:10px}
+.bxcfg-row .cnt{color:var(--dim);font-size:10px;text-align:right}
+.bxcfg-row input{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:3px 4px;font-size:11px;font-family:inherit;text-align:center}
 .bxrow{display:grid;grid-template-columns:34px 1fr 52px 44px;gap:3px;align-items:center;padding:4px 2px;border-radius:6px;border:1px solid transparent;margin-bottom:2px}
 .bxhdr{border-bottom:1px solid var(--border);margin-bottom:4px;padding-bottom:6px!important}
 .bxrow:hover:not(.bxhdr){background:var(--surface2);border-color:var(--border)}
@@ -231,6 +241,18 @@ input[type=number].bxcard-n:focus{
   <span class="badge">MIYUKI GENERATOR</span>
 </header>
 
+<!-- Banner: solo visible cuando el editor se abre como archivo local (file://).
+     Guardar en el juego requiere que el servidor Vite esté corriendo y que el editor
+     se sirva desde http://localhost:5173/level-editor.html. -->
+<div id="fileBanner" style="display:none;background:#7c2d12;color:#fecaca;font-size:12px;padding:7px 16px;align-items:center;gap:10px;flex-shrink:0">
+  <span>⚠ Estás abriendo el editor como archivo local. <b>Guardar en el juego</b> requiere abrirlo desde el servidor de desarrollo.</span>
+  <a id="fileBannerLink" href="http://localhost:5173/level-editor.html" target="_blank"
+     style="background:#fecaca;color:#7c2d12;padding:3px 10px;border-radius:4px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0">
+    Abrir en localhost:5173 ↗
+  </a>
+  <span style="margin-left:auto;opacity:.7;font-size:10px">O usa "📄 Archivo .js" para descargar el nivel.</span>
+</div>
+
 <div class="layout">
 
 <!-- ── SIDEBAR ───────────────────────────────────────── -->
@@ -311,7 +333,7 @@ input[type=number].bxcard-n:focus{
       </div>
       <div>
         <div class="clbl">Columnas de cajas</div>
-        <input type="number" id="boxCols" value="4" min="2" max="6" onchange="renderBoxPanel()">
+        <input type="number" id="boxCols" value="4" min="1" max="8" onchange="setBoxColsFromCfg(this.value)">
       </div>
     </div>
     <input type="hidden" id="holeGap" value="70">
@@ -434,6 +456,20 @@ input[type=number].bxcard-n:focus{
     </button>
   </div>
 
+  <!-- Ajustes globales del juego (GAME_SETTINGS en LevelData.js) -->
+  <div class="sec">
+    <div class="sec-t">🖥 Pantalla del juego</div>
+    <div class="ctrl row2" style="margin-bottom:6px;align-items:end">
+      <div>
+        <div class="clbl">Alto máximo (px)</div>
+        <input type="number" id="gameMaxH" min="300" max="4000" step="10" value="800"
+          style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:11px;font-family:inherit">
+      </div>
+      <button class="btn btn-p" onclick="saveGameSettings()" title="Guarda GAME_SETTINGS.maxHeight en src/data/LevelData.js; el juego lo aplica al recargar">✔ Aplicar</button>
+    </div>
+    <div style="font-size:10px;color:var(--dim)">Limita el alto del área de juego en pantalla (escritorio). En móvil se usa toda la pantalla.</div>
+  </div>
+
 </aside>
 
 <!-- ── MAIN ───────────────────────────────────────────── -->
@@ -490,7 +526,7 @@ input[type=number].bxcard-n:focus{
       </select>
     </div>
     <div class="brow" style="margin-bottom:5px">
-      <button class="btn btn-p" onclick="reorderBoxes()" title="Mantiene las cajas actuales (colores y hormigas) y las reubica en las columnas para que el nivel tenga tantas estrategias viables como indica la dificultad">🧩 Reordenar</button>
+      <button class="btn btn-p" onclick="reorderBoxes()" title="Genera las cajas desde los colores del diseño (hormigas = cubos exactos por color) y las ordena según la dificultad, simulando que las hormigas quitan los colores de afuera hacia adentro">🧩 Reordenar</button>
       <button class="btn btn-o" onclick="regenerateBoxes()" title="Crea las cajas desde cero simulando el desbloqueo del dibujo y las distribuye según la dificultad">🔄 Regenerar</button>
     </div>
     <button class="btn btn-o" style="margin-bottom:5px;font-size:11px" onclick="evalCurrentLayout()" title="Calcula el % de éxito de la distribución actual de cajas">📊 % éxito actual</button>
@@ -500,7 +536,28 @@ input[type=number].bxcard-n:focus{
     </div>
   </div>
 
-  <div class="sec" style="flex:1;overflow-y:auto;padding:6px 8px">
+  <!-- Configuración de cajas por color: nº de cajas ↔ máx. hormigas por caja (dependientes)
+       y nº de columnas del tablero de cajas. Cada cambio regenera las cajas de ese color y
+       las reparte en las columnas de forma equilibrada. -->
+  <div class="sec" id="boxCfgSec">
+    <div class="sec-t">⚙ Configuración de cajas</div>
+    <div class="ctrl row2" style="margin-bottom:6px;align-items:end">
+      <div>
+        <div class="clbl">Columnas de cajas</div>
+        <input type="number" id="cfgBoxCols" value="4" min="1" max="8"
+          onchange="setBoxColsFromCfg(this.value)"
+          style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:11px;font-family:inherit">
+      </div>
+      <button class="btn btn-o" style="font-size:11px" onclick="balanceBoxColumns(true)" title="Reparte las cajas actuales en las columnas dejando la misma cantidad en cada una">⚖ Equilibrar</button>
+    </div>
+    <div class="bxcfg-head"><span>Color</span><span>Cubos</span><span>📦 Cajas</span><span>🐜 Mín</span><span>🐜 Máx</span></div>
+    <div id="boxCfgList" style="max-height:300px;overflow-y:auto">
+      <div style="font-size:11px;color:var(--dim);text-align:center;padding:10px 0">Carga un diseño para configurar las cajas</div>
+    </div>
+  </div>
+
+  <!-- El tablero crece con su contenido; es el sidebar completo el que hace scroll -->
+  <div class="sec" style="flex-shrink:0;padding:6px 8px">
     <div id="bxTable">
       <div style="font-size:11px;color:var(--dim);text-align:center;padding:20px 0">
         Carga un diseño para ver las cajas
@@ -829,6 +886,140 @@ function generateBoxesFromPalette(){
   updatePal();
   scheduleAutoSave();
   showToast(`📦 ${total} cajas generadas para ${sorted.length} colores`);
+}
+
+// ── Configuración de cajas por color (panel derecho) ─────────────────────────
+// Para cada color del dibujo: nº de cajas ↔ máx. hormigas por caja. Son dependientes:
+//   cajas  = ceil(cubos / máx)      máx = ceil(cubos / cajas)
+// Al cambiar cualquiera se regeneran las cajas de ese color (reparto equitativo de
+// cubos, ≤ 99 por caja) y se reequilibran las columnas del tablero.
+function renderBoxCfg(){
+  const list=document.getElementById('boxCfgList');
+  if(!list)return;
+  const colsEl=document.getElementById('cfgBoxCols');
+  if(colsEl&&document.activeElement!==colsEl)colsEl.value=boxColsCount();
+  if(!grid.length){
+    list.innerHTML='<div style="font-size:11px;color:var(--dim);text-align:center;padding:10px 0">Carga un diseño para configurar las cajas</div>';
+    return;
+  }
+  const counts=new Map(pal.map(p=>[p.id,cntCell(p.id)]));
+  const sorted=[...pal].filter(p=>counts.get(p.id)>0).sort((a,b)=>counts.get(b.id)-counts.get(a.id)||a.id-b.id);
+  if(!sorted.length){
+    list.innerHTML='<div style="font-size:11px;color:var(--dim);text-align:center;padding:10px 0">El dibujo no tiene cubos</div>';
+    return;
+  }
+  list.innerHTML=sorted.map((p,i)=>{
+    const cnt=counts.get(p.id);
+    const {minPer,maxPer}=cfgLimits(p,cnt);
+    const cur=boxes.filter(b=>b.colorId===p.id).length;
+    const nBoxes=cur||Math.ceil(cnt/maxPer);
+    const minBoxes=Math.ceil(cnt/BOX_MAX_ANTS);
+    return `<div class="bxcfg-row" data-id="${p.id}">
+      <div class="cl"><div class="sw" style="background:${p.hex}"></div><span title="Color #${p.id} ${p.hex}">#${i+1} ${p.hex}</span></div>
+      <div class="cnt">${cnt}</div>
+      <input type="number" class="cfg-boxes" data-id="${p.id}" value="${nBoxes}" min="${minBoxes}" max="${cnt}"
+        title="Nº de cajas para este color (mín. ${minBoxes})" onchange="cfgSetBoxes(${p.id},this.value)">
+      <input type="number" class="cfg-min" data-id="${p.id}" value="${minPer}" min="1" max="${cnt}"
+        title="Mín. de hormigas por caja: limita el nº de cajas a ⌊cubos / mín⌋" onchange="cfgSetMinPer(${p.id},this.value)">
+      <input type="number" class="cfg-max" data-id="${p.id}" value="${maxPer}" min="1" max="${BOX_MAX_ANTS}"
+        title="Máx. de hormigas por caja (≤ ${BOX_MAX_ANTS}): nº de cajas = ⌈cubos / máx⌉" onchange="cfgSetMaxPer(${p.id},this.value)">
+    </div>`;
+  }).join('');
+}
+
+// Límites por color (persisten en la paleta). Por defecto: mín 10 (o los cubos que
+// haya si son menos) y máx 42. Siempre 1 ≤ mín ≤ máx ≤ 99 y mín ≤ cubos.
+const CFG_MIN_DEFAULT=10, CFG_MAX_DEFAULT=42;
+function cfgLimits(p,cnt){
+  let maxPer=Number.isInteger(p.maxPer)?p.maxPer:CFG_MAX_DEFAULT;
+  let minPer=Number.isInteger(p.minPer)?p.minPer:Math.min(CFG_MIN_DEFAULT,cnt);
+  maxPer=Math.max(1,Math.min(BOX_MAX_ANTS,maxPer));
+  minPer=Math.max(1,Math.min(cnt,maxPer,minPer));
+  return{minPer,maxPer};
+}
+
+// Nº de cajas válido para un color según sus límites: ⌈cubos/máx⌉ ≤ n ≤ ⌊cubos/mín⌋
+function cfgClampBoxes(pid,n){
+  const cnt=cntCell(pid);
+  const p=pal.find(x=>x.id===pid)||{};
+  const {minPer,maxPer}=cfgLimits(p,cnt);
+  const lo=Math.ceil(cnt/maxPer);
+  const hi=Math.max(lo,Math.floor(cnt/minPer));
+  if(!Number.isInteger(n))n=lo;
+  return Math.max(1,Math.max(lo,Math.min(hi,n)));
+}
+
+// Cambia el nº de cajas de un color → regenera sus cajas y reequilibra columnas.
+// Si el nº pedido se sale de [⌈cubos/máx⌉, ⌊cubos/mín⌋], se ajustan mín/máx para respetarlo.
+function cfgSetBoxes(pid,val,adjustLimits=true){
+  const cnt=cntCell(pid);
+  let n=parseInt(val,10);
+  if(!Number.isInteger(n))n=cfgClampBoxes(pid,n);
+  n=Math.max(Math.ceil(cnt/BOX_MAX_ANTS),Math.min(cnt,n));
+  const p=pal.find(x=>x.id===pid);
+  if(p&&adjustLimits){
+    const {minPer,maxPer}=cfgLimits(p,cnt);
+    const perMax=Math.ceil(cnt/n), perMin=Math.floor(cnt/n);
+    if(perMax>maxPer)p.maxPer=perMax;        // cajas más grandes de lo permitido → sube el máx
+    if(perMin<minPer)p.minPer=Math.max(1,perMin);  // cajas más pequeñas → baja el mín
+  }
+  setColorBoxCount(pid,n,true);
+  balanceBoxColumns(false);
+  bfsResult=null;
+  renderBoxPanel();updatePal();scheduleAutoSave();
+  showToast(`📦 Color #${pid}: ${n} caja${n===1?'':'s'} · ${Math.floor(cnt/n)}–${Math.ceil(cnt/n)} hormigas/caja`);
+}
+
+// Cambia el MÍN. de hormigas por caja → el nº de cajas no puede superar ⌊cubos/mín⌋
+function cfgSetMinPer(pid,val){
+  const cnt=cntCell(pid);
+  const p=pal.find(x=>x.id===pid); if(!p)return;
+  let m=parseInt(val,10);
+  if(!Number.isInteger(m)||m<1)m=Math.min(CFG_MIN_DEFAULT,cnt);
+  p.minPer=Math.max(1,Math.min(cnt,BOX_MAX_ANTS,m));
+  // mín ≤ máx: si el máx efectivo (guardado o por defecto) queda por debajo, se eleva
+  const curMax=Number.isInteger(p.maxPer)?p.maxPer:CFG_MAX_DEFAULT;
+  if(curMax<p.minPer)p.maxPer=p.minPer;
+  const cur=boxes.filter(b=>b.colorId===pid).length||Math.ceil(cnt/cfgLimits(p,cnt).maxPer);
+  cfgSetBoxes(pid,cfgClampBoxes(pid,cur),false);
+}
+
+// Cambia el MÁX. de hormigas por caja → nº de cajas = ⌈cubos/máx⌉
+function cfgSetMaxPer(pid,val){
+  const cnt=cntCell(pid);
+  const p=pal.find(x=>x.id===pid); if(!p)return;
+  let m=parseInt(val,10);
+  if(!Number.isInteger(m)||m<1)m=CFG_MAX_DEFAULT;
+  p.maxPer=Math.min(BOX_MAX_ANTS,m);
+  // mín ≤ máx: si el mín efectivo (guardado o por defecto) queda por encima, se baja
+  const curMin=Number.isInteger(p.minPer)?p.minPer:Math.min(CFG_MIN_DEFAULT,cnt);
+  if(curMin>p.maxPer)p.minPer=p.maxPer;
+  cfgSetBoxes(pid,cfgClampBoxes(pid,Math.ceil(cnt/p.maxPer)),false);
+}
+
+// Nº de columnas desde la sección de configuración → sincroniza el input de
+// «Datos del nivel» y reequilibra el tablero de cajas
+function setBoxColsFromCfg(val){
+  let v=parseInt(val,10);
+  if(!Number.isInteger(v))v=4;
+  v=Math.max(1,Math.min(8,v));
+  const left=document.getElementById('boxCols');
+  if(left)left.value=v;
+  const cfg=document.getElementById('cfgBoxCols');
+  if(cfg)cfg.value=v;
+  balanceBoxColumns(false);
+  renderBoxPanel();scheduleAutoSave();
+  showToast(`📐 ${v} columnas de cajas`);
+}
+
+// Reparte las cajas en las columnas dejando la misma cantidad en cada una
+// (orden de desbloqueo → fila a fila, izquierda a derecha).
+function balanceBoxColumns(notify){
+  if(!boxes.length){if(notify)showToast('⚠ No hay cajas que equilibrar');return;}
+  const bc=boxColsCount();
+  const ordered=[...boxes].sort((a,b)=>(a.order??1e9)-(b.order??1e9)||(a.row??0)-(b.row??0)||(a.col??0)-(b.col??0));
+  ordered.forEach((b,i)=>{b.col=i%bc;b.row=Math.floor(i/bc);});
+  if(notify){renderBoxPanel();scheduleAutoSave();showToast(`⚖ ${boxes.length} cajas repartidas en ${bc} columnas`);}
 }
 
 // Selecciona en el dibujo todas las celdas de un color de la paleta.
@@ -1241,7 +1432,7 @@ async function saveLevel(){
   const code=document.getElementById('cody').textContent;
   if(!code){showToast('❌ Error al generar el código');return;}
   const exists=_existingLevelIds.includes(n);
-  if(exists&&!confirm(`El Nivel ${n} ya existe en LevelData.js.\n¿Sobrescribirlo con el diseño actual?`))return;
+  // Sin diálogo de confirmación: el botón ya dice "Sobrescribir" cuando el nivel existe
   try{
     const res=await fetch(EDITOR_API+'/__editor/save-level',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -1255,7 +1446,46 @@ async function saveLevel(){
     setLoadedLevel(n);                  // el nivel guardado pasa a ser el nivel en edición
     showToast(`✅ Nivel ${n} ${j.action} en src/data/LevelData.js — ya está disponible en el juego`,3600);
   }catch(e){
-    showToast(`❌ No se pudo guardar en el juego (${e.message}). Abre el editor desde http://localhost:5173/level-editor.html con "npm run dev", o usa "Archivo .js".`,5200);
+    // "Failed to fetch" = el editor está en file:// o el servidor no está corriendo.
+    // Fallback automático: descarga el nivel como archivo .js para no perder el trabajo.
+    const isFetch = e instanceof TypeError || (e.message||'').toLowerCase().includes('fetch');
+    if(isFetch){
+      showToast('⚠ No se pudo conectar con el servidor. Descargando el nivel como archivo .js…',3800);
+      setTimeout(()=>saveAsJS(),600);
+    } else {
+      showToast(`❌ Error al guardar (${e.message})`,4000);
+    }
+  }
+}
+
+// ── Ajustes globales del juego (GAME_SETTINGS.maxHeight) ─────────────────────
+async function loadGameSettings(){
+  try{
+    const res=await fetch(EDITOR_API+'/__editor/settings',{cache:'no-store'});
+    if(!res.ok)return;
+    const j=await res.json();
+    const el=document.getElementById('gameMaxH');
+    if(el&&j.settings?.maxHeight)el.value=j.settings.maxHeight;
+  }catch(_){/* sin servidor: se mantiene el valor por defecto */}
+}
+
+async function saveGameSettings(){
+  const el=document.getElementById('gameMaxH');
+  const mh=parseInt(el?.value,10);
+  if(!(mh>=300&&mh<=4000)){showToast('⚠ El alto máximo debe estar entre 300 y 4000 px');return;}
+  try{
+    const res=await fetch(EDITOR_API+'/__editor/settings',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({maxHeight:mh}),
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.ok)throw new Error(j.error||`HTTP ${res.status}`);
+    showToast(`✅ Alto máximo ${mh}px guardado — recarga el juego para verlo`,3200);
+  }catch(e){
+    const isFetch=e instanceof TypeError||(e.message||'').toLowerCase().includes('fetch');
+    showToast(isFetch
+      ?'⚠ No se pudo conectar con el servidor. Abre el editor desde http://localhost:5173/level-editor.html'
+      :`❌ Error al guardar (${e.message})`,4200);
   }
 }
 
@@ -1296,7 +1526,7 @@ function stateToJSON(){
     boxCols:+document.getElementById('boxCols').value,
     holeGap:+document.getElementById('holeGap').value,
     gRows,gCols,
-    pal:pal.map(p=>({id:p.id,hex:p.hex,rgb:p.rgb,boxCount:p.boxCount})),
+    pal:pal.map(p=>({id:p.id,hex:p.hex,rgb:p.rgb,boxCount:p.boxCount,minPer:p.minPer,maxPer:p.maxPer})),
     grid,
     boxes:boxes.map(b=>({uid:b.uid,colorId:b.colorId,n:b.n,diff:b.diff,col:b.col,row:b.row,order:b.order})),
     ts:Date.now()
@@ -1503,6 +1733,11 @@ let _autoLevelsLoaded=false;
 // Base del servidor de desarrollo de Vite: vacía si el editor se sirve desde Vite;
 // 'http://localhost:5173' si se abrió como archivo local (file://)
 const EDITOR_API=location.protocol==='file:'?'http://localhost:5173':'';
+// Muestra el banner de advertencia cuando el editor se abre como file://
+if(location.protocol==='file:'){
+  const b=document.getElementById('fileBanner');
+  if(b) b.style.display='flex';
+}
 async function autoLoadGameLevels(){
   const loading=document.getElementById('qLevelLoading');
   if(_autoLevelsLoaded&&window._parsedLevels?.length){ loading.style.display='none'; return; }
@@ -1624,6 +1859,7 @@ function applyPickedLevel(i){
 window.addEventListener('DOMContentLoaded',()=>{
   populateSaveLevelSelect();                       // 1..100 inmediato
   autoLoadGameLevels().catch(()=>{}).then(()=>refreshExistingLevels());
+  loadGameSettings();                              // alto máximo de pantalla
 });
 
 function quickCreateNew(){
@@ -2204,7 +2440,14 @@ function orderExistingBoxes(list){
 // columna/fila y nº de orden para que el nivel tenga tantas estrategias viables
 // como indica la dificultad (4 / 3 / 2 / 1 caminos).
 let _reorderToken=0;
-function reorderBoxes(){
+// «Reordenar» ahora GENERA las cajas desde los colores del diseño (hormigas = nº exacto
+// de cubos por color, cajas de hasta 99) y las ordena según la dificultad elegida,
+// simulando que las hormigas quitan los colores de afuera hacia adentro del dibujo.
+// Es la misma lógica que «Regenerar»; el comportamiento anterior (mantener las cajas
+// existentes y solo recolocarlas) se conserva en reorderExistingBoxes().
+function reorderBoxes(){ regenerateBoxes(); }
+
+function reorderExistingBoxes(){
   if(!grid.length){showToast('⚠ Carga un diseño primero');return;}
   if(!boxes.length){showToast('⚠ No hay cajas. Usa «Generar cajas» o «Regenerar»');return;}
   const diffKey=document.getElementById('genDiff')?.value||'low';
@@ -2406,6 +2649,7 @@ function renderBoxPanel(){
   tbl.innerHTML=html;
   requestAnimationFrame(drawAllBoxCanvases);
   renderColorCounter();
+  renderBoxCfg();
   if(showHeatmap&&grid.length)render();
 }
 

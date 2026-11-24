@@ -6,6 +6,15 @@ import antH2 from '../assets/ants/h2.png';
 import antH3 from '../assets/ants/h3.png';
 import antH4 from '../assets/ants/h4.png';
 import antH5 from '../assets/ants/h5.png';
+import cuboOrange  from '../assets/cubos/cubo_orange3.png';
+import cuboYellow  from '../assets/cubos/cubo_yellow.png';
+import cuboWhite   from '../assets/cubos/cubo_white.png';
+import cuboNaranja from '../assets/cubos/c_naranja2.png';
+// Cubos nivel 3
+import cuNaranja  from '../assets/cubos/cu_naranja.jpg';
+import cuAmarillo from '../assets/cubos/cu_amarillo.jpg';
+import cuNegro    from '../assets/cubos/cu_negro.jpg';
+import cuBlanco   from '../assets/cubos/cu_blanco.jpg';
 import { ANT_STYLE, ANT_SHEET } from '../config/antStyle.js';
 
 export class PreloadScene extends Phaser.Scene {
@@ -36,6 +45,16 @@ export class PreloadScene extends Phaser.Scene {
         this.load.image('ant_h3', antH3);
         this.load.image('ant_h4', antH4);
         this.load.image('ant_h5', antH5);
+        // Texturas de cubos: sustituyen al cubo procedural para los colores de CUBE_TEXTURES
+        this.load.image('cubo_orange',  cuboOrange);
+        this.load.image('cubo_yellow',  cuboYellow);
+        this.load.image('cubo_white',   cuboWhite);
+        this.load.image('c_naranja',    cuboNaranja); // naranja alternativo (nivel 3)
+        // Texturas cu_* para nivel 3
+        this.load.image('cu_naranja',  cuNaranja);
+        this.load.image('cu_amarillo', cuAmarillo);
+        this.load.image('cu_negro',    cuNegro);
+        this.load.image('cu_blanco',   cuBlanco);
     }
 
     create() {

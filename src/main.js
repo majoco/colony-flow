@@ -3,6 +3,15 @@ import { BootScene }    from './scenes/BootScene.js';
 import { PreloadScene } from './scenes/PreloadScene.js';
 import { MenuScene }    from './scenes/MenuScene.js';
 import { GameScene }    from './scenes/GameScene.js';
+import * as LevelData   from './data/LevelData.js';
+
+// Alto máximo del área de juego en pantalla (configurable desde el editor →
+// GAME_SETTINGS.maxHeight en LevelData.js). Sobrescribe el max-height de index.html.
+{
+    const maxH = Number(LevelData.GAME_SETTINGS?.maxHeight);
+    const app  = document.getElementById('app');
+    if (app && maxH > 0) app.style.maxHeight = `${maxH}px`;
+}
 
 // Altura lógica del juego: proporción 9:20 como el juego de referencia (484×1080).
 // Ancho fijo 480; altura mínima 1067 (9:20). En móviles aún más altos se extiende

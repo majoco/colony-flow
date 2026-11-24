@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import * as LevelData from '../data/LevelData.js';
 import { CUBE_COLORS, lightenColor, darkenColor } from '../data/LevelData.js';
 import { ANT_STYLE, ANT_SHEET } from '../config/antStyle.js';
+import { unlockLevel } from '../services/PlayerProfile.js';
+import { initAds } from '../services/AdService.js';
 
 // Niveles disponibles: todas las exportaciones LEVEL_N de LevelData.js, ordenadas por N
 export function getLevels() {
@@ -25,12 +27,16 @@ const BAR_H = 56;   // alto de la barra de power-ups (sobre el banner)
 
 // Constantes dinámicas — se reinicializan en create() según el nivel seleccionado
 let CELL    = 20;   // px per board cell
+let ROW_STEP = CELL; // paso vertical entre filas (< CELL para efecto de apilamiento 3D)
 let BCOLS   = 20;   // board columns
 let BROWS   = 14;   // board rows
 let BOARD_W = BCOLS * CELL;
-let BOARD_H = BROWS * CELL;
+let BOARD_H = BROWS * CELL; // altura visual real (actualizada en create/relayout)
 let BOARD_X = (GW - BOARD_W) / 2;
 const BOARD_Y = 155;  // posición Y del tablero (marco a y=139, como la referencia)
+// Área máxima del tablero: el tamaño de celda se calcula para llenarla
+const BOARD_MAX_W = 390;  // margen lateral ~45 px por lado (GW=480)
+const BOARD_MAX_H = 430;
 
 // Cajas — medidas tomadas del juego de referencia (484×1080 → 480 de ancho)
 const BOX_VISIBLE_ROWS = 3;   // filas visibles por columna; el resto espera oculto y sube
@@ -62,14 +68,29 @@ let BOX_SIZE = 62;
 // Paleta de colores activa — se asigna en create() según el nivel
 let activeCubeColors = CUBE_COLORS;
 
+// Texturas de cubo por color (hex → clave de textura cargada en PreloadScene).
+// Los colores aquí listados se dibujan con una Image en vez del cubo procedural.
+// Assets en src/assets/cubos/
+const CUBE_TEXTURES = {
+    0xf9891f: 'cubo_orange',   // naranja
+    0xfcff2e: 'cubo_yellow',   // amarillo
+    0xffffff: 'cubo_white',    // blanco
+};
+// Mapa activo de texturas; se actualiza en create() según el nivel cargado
+let activeCubeTextures = { ...CUBE_TEXTURES };
+// Las imágenes tienen un pequeño margen transparente: se escalan algo más grandes
+// que la celda y se centran para que la cara visible coincida con el cubo procedural.
+const CUBE_TEX_SCALE   = 1.10;  // escala horizontal de la textura
+const CUBE_TEX_H_SCALE = 1.35;  // escala vertical  (cubos más altos)
+
 // ── Helper functions ───────────────────────────────────────────────────────────
 function cellPx(r, c) {
     const hc = CELL / 2;
     if (r < 0)     return { x: BOARD_X + c * CELL + hc, y: BOARD_Y - hc };
     if (r >= BROWS) return { x: BOARD_X + c * CELL + hc, y: BOARD_Y + BOARD_H + hc };
-    if (c < 0)     return { x: BOARD_X - hc, y: BOARD_Y + r * CELL + hc };
-    if (c >= BCOLS) return { x: BOARD_X + BOARD_W + hc, y: BOARD_Y + r * CELL + hc };
-    return { x: BOARD_X + c * CELL + hc, y: BOARD_Y + r * CELL + hc };
+    if (c < 0)     return { x: BOARD_X - hc, y: BOARD_Y + r * ROW_STEP + hc };
+    if (c >= BCOLS) return { x: BOARD_X + BOARD_W + hc, y: BOARD_Y + r * ROW_STEP + hc };
+    return { x: BOARD_X + c * CELL + hc, y: BOARD_Y + r * ROW_STEP + hc };
 }
 
 // Fusiona tramos ortogonales collineales consecutivos en un único waypoint más largo.
@@ -126,11 +147,12 @@ function mergeOrthToDiag(pts, board) {
             const hv = (a.y === b.y && b.x !== a.x && b.x === c.x && b.y !== c.y);
             const vh = (a.x === b.x && b.y !== a.y && b.y === c.y && b.x !== c.x);
             if (hv || vh) {
-                // Convertir píxeles a celdas de grid para verificar colisión
-                const r1 = Math.floor((a.y - BOARD_Y) / CELL);
-                const c1 = Math.floor((a.x - BOARD_X) / CELL);
-                const r2 = Math.floor((c.y - BOARD_Y) / CELL);
-                const c2 = Math.floor((c.x - BOARD_X) / CELL);
+                // Convertir píxeles a celdas de grid para verificar colisión.
+                // Se resta CELL/2 porque cellPx centra las coordenadas en la celda.
+                const r1 = Math.round((a.y - BOARD_Y - CELL / 2) / ROW_STEP);
+                const c1 = Math.round((a.x - BOARD_X - CELL / 2) / CELL);
+                const r2 = Math.round((c.y - BOARD_Y - CELL / 2) / ROW_STEP);
+                const c2 = Math.round((c.x - BOARD_X - CELL / 2) / CELL);
                 // Solo diagonal si el camino está despejado de cubos
                 if (diagonalClear(board, r1, c1, r2, c2)) {
                     out.push(c);
@@ -157,16 +179,28 @@ export class GameScene extends Phaser.Scene {
         this.levelData   = lvl;
         this.currentLevel = lvlId;   // guardado para Play Again
 
+        // Inicializar publicidad (AdMob en nativo; en web el banner HTML ya es visible)
+        initAds().catch(() => {});
+
         // Altura real de la pantalla (definida en main.js según el viewport del dispositivo)
         GH = this.scale.height;
 
         // Reinicializar constantes de layout dinámicas según el nivel seleccionado
-        CELL    = lvl.cell    ?? 20;
         BCOLS   = lvl.cols    ?? 20;
         BROWS   = lvl.rows    ?? 14;
-        BOARD_W = BCOLS * CELL;
-        BOARD_H = BROWS * CELL;
-        BOARD_X = (GW - BOARD_W) / 2;
+        // Tamaño de celda AUTOMÁTICO: el dibujo ocupa el área del tablero completa
+        // (BOARD_MAX_W × BOARD_MAX_H) sea cual sea su nº de filas/columnas.
+        // 30×30 → 12 px (como la referencia), 15×15 → 24 px, 50×50 → 7 px.
+        // El valor `cell` del nivel ya no se usa aquí (lo sigue exportando el editor).
+        CELL     = Math.max(4, Math.floor(Math.min(BOARD_MAX_W / BCOLS, BOARD_MAX_H / BROWS)));
+        // Nivel 3: filas ligeramente separadas → ROW_STEP = CELL * 1.05 (cara superior cuadrada).
+        // Otros niveles: solapamiento 1/3 (fila inferior tapa 1/3 de la superior).
+        ROW_STEP = lvlId === 3
+            ? CELL
+            : Math.max(2, Math.round(CELL * 2 / 3));
+        BOARD_W  = BCOLS * CELL;
+        BOARD_H  = (BROWS - 1) * ROW_STEP + CELL;        // altura visual real con filas solapadas
+        BOARD_X  = (GW - BOARD_W) / 2;
         // Agujero y slots a distancias fijas bajo el tablero (como la referencia)
         const holeOff = lvl.holeOffset ?? HOLE_OFF;
         let   slotOff = lvl.slotOffset ?? SLOT_OFF;
@@ -185,6 +219,13 @@ export class GameScene extends Phaser.Scene {
             : Math.ceil((lvl.boxes?.length ?? 16) / BOX_COLS);
         BOX_ROWS = Math.min(this.totalBoxRows, BOX_VISIBLE_ROWS);
         activeCubeColors = lvl.colors ?? CUBE_COLORS;
+        // Texturas por nivel: nivel 3 usa cubos cu_* para todos sus colores
+        activeCubeTextures = { ...CUBE_TEXTURES };
+        if (lvlId === 3) {
+            activeCubeTextures[0xf9891f] = 'c_naranja';    // naranja → c_naranja.png
+            activeCubeTextures[0xfcff2e] = 'cu_amarillo';  // amarillo → cu_amarillo
+            activeCubeTextures[0xffffff] = 'cu_blanco';    // blanco → cu_blanco
+        }
 
         // ── Ajuste vertical de seguridad: las filas visibles deben terminar antes
         // de la barra de power-ups y del banner (anclados al fondo real).
@@ -192,9 +233,10 @@ export class GameScene extends Phaser.Scene {
         const contentBottom = GH - AD_H - BAR_H;
         const boxesBottom   = () => BOX_Y0 + BOX_ROWS * BOX_H;
         const relayout = () => {
-            BOARD_W = BCOLS * CELL;
-            BOARD_H = BROWS * CELL;
-            BOARD_X = (GW - BOARD_W) / 2;
+            BOARD_W  = BCOLS * CELL;
+            ROW_STEP = lvlId === 3 ? CELL : Math.max(2, Math.round(CELL * 2 / 3));
+            BOARD_H  = (BROWS - 1) * ROW_STEP + CELL;
+            BOARD_X  = (GW - BOARD_W) / 2;
             HOLE_Y  = BOARD_Y + BOARD_H + holeOff;
             SLOT_Y  = BOARD_Y + BOARD_H + slotOff;
             BOX_Y0  = SLOT_Y + SLOT_H + BOX_OFF;
@@ -266,7 +308,7 @@ export class GameScene extends Phaser.Scene {
         // Velocidad de hormigas (modificable con botón 2×)
         // antSpeed se deriva de CELL × msPerPx para que la velocidad en px/s
         // sea idéntica dentro del tablero y en el perimetro (todos los niveles).
-        this.msPerPx   = 6.0;                // ms por pixel (≈167 px/s)
+        this.msPerPx   = 5.5;                // ms por pixel (≈182 px/s)
         this.antSpeed  = CELL * this.msPerPx; // ms por celda = mismo px/s que el perimetro
         this.speedBoost = false;
 
@@ -280,11 +322,11 @@ export class GameScene extends Phaser.Scene {
 
         this.buildScene();
 
-        // Ant dispatch loop — 200 ms por tick (todos los niveles)
+        // Ant dispatch loop — 220 ms por tick (todos los niveles)
         // El tick corre a 50 ms; cada slot decide con su propio reloj si ya pasaron
-        // DISPATCH_MS (200 ms) desde su última hormiga → cadencia estable aunque un
+        // DISPATCH_MS (220 ms) desde su última hormiga → cadencia estable aunque un
         // frame se retrase.
-        this.DISPATCH_MS   = 200;
+        this.DISPATCH_MS   = 220;
         this.slotLastShot  = new Array(N_SLOTS).fill(-Infinity);
         this.time.addEvent({
             delay     : 50,
@@ -433,6 +475,7 @@ export class GameScene extends Phaser.Scene {
 
         // Board cubes (single Graphics redrawn on change)
         this.boardGfx = this.add.graphics();
+        this.cubeImgs = new Map();   // reiniciar el pool al (re)iniciar la escena
         this.redrawBoard();
 
         // Agujero de hormigas — usa la constante HOLE_Y
@@ -454,22 +497,46 @@ export class GameScene extends Phaser.Scene {
         const sg = this.shadowGfx;
         g.clear();
         sg.clear();
+        // Pool de Images para colores con textura (CUBE_TEXTURES): se crean una vez por
+        // celda y se destruyen cuando la celda queda vacía.
+        if (!this.cubeImgs) this.cubeImgs = new Map();
+        const alive = new Set();
         for (let r = 0; r < BROWS; r++) {
             for (let c = 0; c < BCOLS; c++) {
                 const cid = this.board[r][c];
                 if (cid === 0) continue;
-                this.drawCube(g, BOARD_X + c * CELL, BOARD_Y + r * CELL, cid);
+                const texKey = activeCubeTextures[activeCubeColors[cid]];
+                if (texKey && this.textures.exists(texKey)) {
+                    const k = `${r},${c}`;
+                    alive.add(k);
+                    if (!this.cubeImgs.has(k)) {
+                        const img = this.add.image(
+                            BOARD_X + c * CELL + CELL / 2,
+                            BOARD_Y + r * ROW_STEP + Math.round(CELL * CUBE_TEX_H_SCALE / 2),
+                            texKey,
+                        ).setDisplaySize(CELL * CUBE_TEX_SCALE, CELL * CUBE_TEX_H_SCALE);
+                        // Filas inferiores (r mayor) encima de las superiores para efecto de apilamiento
+                        img.setDepth(g.depth + r * 0.001);
+                        this.cubeImgs.set(k, img);
+                    }
+                } else {
+                    this.drawCube(g, BOARD_X + c * CELL, BOARD_Y + r * ROW_STEP, cid);
+                }
                 // Sombra de 4px: aparece al inicio de la celda vacía directamente debajo
                 // boardGfx (dibujado después) tapa la sombra en celdas con cubo.
                 if (r + 1 < BROWS && this.board[r + 1][c] === 0) {
                     sg.fillStyle(0x000000, 0.25);
                     sg.fillRect(
                         BOARD_X + c * CELL + 1,
-                        BOARD_Y + (r + 1) * CELL,
+                        BOARD_Y + (r + 1) * ROW_STEP,
                         CELL - 2, 4
                     );
                 }
             }
+        }
+        // Eliminar las Images de celdas que ya no tienen cubo
+        for (const [k, img] of this.cubeImgs) {
+            if (!alive.has(k)) { img.destroy(); this.cubeImgs.delete(k); }
         }
     }
 
@@ -478,8 +545,8 @@ export class GameScene extends Phaser.Scene {
         if (!base) return;
 
         const fw    = CELL;
-        const fh    = CELL;
-        const DEPTH = 3;                      // profundidad inferior visible
+        const fh    = Math.round(CELL * 1.25); // cubos algo más altos que anchos
+        const DEPTH = 3;                       // profundidad inferior visible
         const rad   = CELL >= 10 ? 3 : 2;    // radio bordes redondeados
         const e     = CELL >= 10 ? 2 : 1;    // grosor de caras 3D laterales
 
@@ -584,11 +651,12 @@ export class GameScene extends Phaser.Scene {
 
     // ── Box grid ───────────────────────────────────────────────────────────────
     makeBoxGrid() {
-        // Grid background
+        // Grid background (guardado en this.boxBg para redibujarlo al realinear columnas)
         const gbg = this.add.graphics();
         gbg.fillStyle(0xC8914A, 0.22);
         // Fondo solo del área de las columnas centradas y de las filas visibles
         gbg.fillRoundedRect(BOX_X0 + 2, BOX_Y0 - 5, BOX_COLS * BOX_W - 4, BOX_ROWS * BOX_H + 10, 12);
+        this.boxBg = gbg;
 
         this.boxes.forEach(box => this.spawnBoxGO(box));
     }
@@ -816,13 +884,40 @@ export class GameScene extends Phaser.Scene {
             }
         });
 
-        // Tap (presionar sin arrastrar) → asignar al primer slot libre izq→der
+        // Tap (presionar sin arrastrar) → animación de botón presionado y luego
+        // salto al primer slot libre izq→der
         cont.on('pointerup', () => {
             if (!dragMoved && !box.inSlot) {
                 const si = this.nextAvailableSlot();
-                if (si >= 0) this.putBoxInSlot(box, si);
+                if (si >= 0) this._pressBox(box, si);
             }
             dragMoved = false;
+        });
+    }
+
+    // Animación de "botón presionado" (misma sensación que en el menú): la caja se
+    // hunde y rebota elástica; al terminar, salta al slot con putBoxInSlot().
+    // El slot se reserva de inmediato para que otro tap no lo tome mientras tanto.
+    _pressBox(box, si) {
+        const cont = box.container;
+        this.slots[si] = box;
+        box.inSlot = true;
+        cont.disableInteractive();
+        this.tweens.killTweensOf(cont);
+        const y0 = box.origY ?? cont.y;
+        this.tweens.add({
+            targets: cont, scaleX: 0.88, scaleY: 0.88, y: y0 + 3,
+            duration: 70, ease: 'Quad.easeOut',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: cont, scaleX: 1, scaleY: 1, y: y0,
+                    duration: 130, ease: 'Back.easeOut',
+                    onComplete: () => {
+                        if (!cont.active) return;
+                        this.putBoxInSlot(box, si);
+                    },
+                });
+            },
         });
     }
 
@@ -831,6 +926,11 @@ export class GameScene extends Phaser.Scene {
         const queue = this.colQueues[col];
         // Eliminar la primera (ya está en slot)
         queue.shift();
+
+        // Si la columna quedó vacía, realinear las columnas restantes con animación
+        if (queue.length === 0) {
+            this.time.delayedCall(300, () => this._realignColumns());
+        }
 
         // Animar las restantes hacia arriba (cada una ocupa la posición anterior).
         // Solo las primeras BOX_VISIBLE_ROWS son visibles; la que entra en la última
@@ -866,6 +966,72 @@ export class GameScene extends Phaser.Scene {
                 });
             }
         });
+    }
+
+    // Cuando una columna queda vacía, desliza las columnas restantes al centro con animación.
+    // Actualiza box.col, box.origX, this.colQueues, BOX_X0 y BOX_COLS.
+    _realignColumns() {
+        // Recopilar columnas que aún tienen cajas
+        const activeOldIdxs = [];
+        for (let ci = 0; ci < this.colQueues.length; ci++) {
+            if (this.colQueues[ci].length > 0) activeOldIdxs.push(ci);
+        }
+        const nActive = activeOldIdxs.length;
+        // Nada que hacer si no hubo cambio en el número de columnas activas
+        if (nActive === 0 || nActive === this.colQueues.length) return;
+
+        // Nuevas posiciones X centradas en la pantalla
+        const newBOX_X0 = (GW - nActive * BOX_W) / 2;
+        const newColQueues = Array.from({ length: nActive }, () => []);
+
+        // Capturar dimensiones actuales del fondo ANTES de actualizar las globales
+        const oldBgX = BOX_X0 + 2;
+        const oldBgW = this.colQueues.length * BOX_W - 4;
+        const newBgX = newBOX_X0 + 2;
+        const newBgW = nActive * BOX_W - 4;
+
+        activeOldIdxs.forEach((oldCi, newCi) => {
+            const queue = this.colQueues[oldCi];
+            const newX  = newBOX_X0 + newCi * BOX_W + BOX_W / 2;
+            queue.forEach(box => {
+                box.col   = newCi;
+                box.origX = newX;
+                newColQueues[newCi].push(box);
+                if (box.container?.active) {
+                    this.tweens.add({
+                        targets : box.container,
+                        x       : newX,
+                        duration: 380,
+                        ease    : 'Back.easeOut',
+                        delay   : 100,
+                    });
+                }
+            });
+        });
+
+        // Animar el fondo del área de cajas
+        if (this.boxBg?.active) {
+            const prog = { t: 0 };
+            this.tweens.add({
+                targets : prog,
+                t       : 1,
+                duration: 380,
+                ease    : 'Cubic.easeOut',
+                delay   : 100,
+                onUpdate: () => {
+                    const cx = oldBgX + (newBgX - oldBgX) * prog.t;
+                    const cw = oldBgW + (newBgW - oldBgW) * prog.t;
+                    this.boxBg.clear();
+                    this.boxBg.fillStyle(0xC8914A, 0.22);
+                    this.boxBg.fillRoundedRect(cx, BOX_Y0 - 5, cw, BOX_ROWS * BOX_H + 10, 12);
+                },
+            });
+        }
+
+        // Actualizar estado global (después de capturar oldBgX/oldBgW)
+        BOX_X0         = newBOX_X0;
+        BOX_COLS       = nActive;
+        this.colQueues = newColQueues;
     }
 
     // Primer slot vacío de izquierda a derecha; -1 si todos ocupados
@@ -1232,6 +1398,8 @@ export class GameScene extends Phaser.Scene {
 
     // Waypoints ortogonales: desde (sx,sy) — debajo del tablero —
     // caminando por el perimetro exterior hasta el punto de entrada (ex,ey).
+    // Si la ruta vertical desde el slot cruzaría el agujero central (hormiga sin cubo),
+    // la hormiga rodea el agujero por el lado más cercano antes de subir al tablero.
     perimeterToEntry(sx, sy, ex, ey, edge) {
         const bY = BOARD_Y + BOARD_H + CELL / 2;   // nivel inferior exterior
         const tY = BOARD_Y - CELL / 2;              // nivel superior exterior
@@ -1239,31 +1407,58 @@ export class GameScene extends Phaser.Scene {
         const rX = BOARD_X + BOARD_W + CELL / 2;   // borde derecho exterior
         const pts = [];
 
-        // 1. Subir hasta el nivel del borde inferior del tablero
-        if (sy !== bY) pts.push({ x: sx, y: bY });
+        // Detectar si la ruta vertical (sx, sy) → (sx, bY) cruzaría el agujero.
+        // El agujero tiene ancho 62 px centrado en GW/2; añadimos 15 px de margen.
+        const hX    = GW / 2;              // X del centro del agujero
+        const hHalf = 62 / 2 + 15;        // radio + margen = 46 px
+        const needsDetour = Math.abs(sx - hX) < hHalf;
 
-        if (edge === 'bottom') {
-            // Entrada por abajo: solo desplazarse horizontalmente
-            pts.push({ x: ex, y: bY });
+        if (needsDetour) {
+            // Elegir el lado del agujero más cercano al slot de partida
+            const sideX = sx <= hX ? (hX - hHalf) : (hX + hHalf);
 
-        } else if (edge === 'left') {
-            // Ir al borde izquierdo, luego subir hasta la fila de entrada
-            pts.push({ x: lX, y: bY });
-            if (ey < bY) pts.push({ x: lX, y: ey });
-
-        } else if (edge === 'right') {
-            // Ir al borde derecho, luego subir hasta la fila de entrada
-            pts.push({ x: rX, y: bY });
-            if (ey < bY) pts.push({ x: rX, y: ey });
-
-        } else {
-            // Entrada por arriba: elegir el lado (izq/der) con menor distancia total
-            const leftCost  = Math.abs(sx - lX) + Math.abs(ex - lX);
-            const rightCost = Math.abs(sx - rX) + Math.abs(ex - rX);
-            const sideX = leftCost <= rightCost ? lX : rX;
+            // 1. Desplazarse lateralmente para quedar fuera del agujero
+            if (Math.abs(sx - sideX) > 1) pts.push({ x: sideX, y: sy });
+            // 2. Subir hasta el nivel inferior del tablero
             pts.push({ x: sideX, y: bY });
-            pts.push({ x: sideX, y: tY });
-            pts.push({ x: ex,    y: tY });
+            // 3. Continuar al punto de entrada según el borde
+            if (edge === 'bottom') {
+                if (Math.abs(sideX - ex) > 1) pts.push({ x: ex, y: bY });
+            } else if (edge === 'left') {
+                if (Math.abs(sideX - lX) > 1) pts.push({ x: lX, y: bY });
+                if (ey < bY) pts.push({ x: lX, y: ey });
+            } else if (edge === 'right') {
+                if (Math.abs(sideX - rX) > 1) pts.push({ x: rX, y: bY });
+                if (ey < bY) pts.push({ x: rX, y: ey });
+            } else {
+                // Entrada por arriba: continuar por el lado que ya elegimos
+                const leftCost  = Math.abs(sideX - lX) + Math.abs(ex - lX);
+                const rightCost = Math.abs(sideX - rX) + Math.abs(ex - rX);
+                const topX = leftCost <= rightCost ? lX : rX;
+                if (Math.abs(sideX - topX) > 1) pts.push({ x: topX, y: bY });
+                pts.push({ x: topX, y: tY });
+                pts.push({ x: ex,   y: tY });
+            }
+        } else {
+            // Ruta directa: subir verticalmente y navegar por el perimetro
+            if (sy !== bY) pts.push({ x: sx, y: bY });
+
+            if (edge === 'bottom') {
+                pts.push({ x: ex, y: bY });
+            } else if (edge === 'left') {
+                pts.push({ x: lX, y: bY });
+                if (ey < bY) pts.push({ x: lX, y: ey });
+            } else if (edge === 'right') {
+                pts.push({ x: rX, y: bY });
+                if (ey < bY) pts.push({ x: rX, y: ey });
+            } else {
+                const leftCost  = Math.abs(sx - lX) + Math.abs(ex - lX);
+                const rightCost = Math.abs(sx - rX) + Math.abs(ex - rX);
+                const topX = leftCost <= rightCost ? lX : rX;
+                pts.push({ x: topX, y: bY });
+                pts.push({ x: topX, y: tY });
+                pts.push({ x: ex,   y: tY });
+            }
         }
 
         return pts;
@@ -1314,7 +1509,9 @@ export class GameScene extends Phaser.Scene {
     // CONSTANTE (msPx = ms por píxel) en todo el recorrido.
     // Usa un único tween sobre la distancia recorrida e interpola posición/orientación
     // en onUpdate → sin pausas entre tramos ni duraciones mínimas que alteren la velocidad.
-    animateWaypoints(ant, waypoints, msPx, onComplete) {
+    // seamless=true: no llama _resetWalk al terminar (usar cuando la siguiente fase
+    // comienza de inmediato, para mantener la marcha continua entre tramos).
+    animateWaypoints(ant, waypoints, msPx, onComplete, seamless = false) {
         // Polilínea desde la posición actual, descartando puntos repetidos
         const pts = [{ x: ant.x, y: ant.y }];
         for (const wp of waypoints) {
@@ -1330,11 +1527,17 @@ export class GameScene extends Phaser.Scene {
         }
         const total = cum[cum.length - 1];
 
-        // Orientar hacia el primer tramo
+        // Orientar hacia el primer tramo al inicio de la fase
         ant.rotation = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x) + Math.PI / 2;
 
         const state = { d: 0 };
         let seg = 1;
+        // Precalcular ángulo de cada tramo para snap instantáneo sin lerp diagonal.
+        // La hormiga solo muestra diagonal cuando el tramo ES real y físicamente diagonal.
+        const segRot = [];
+        for (let i = 1; i < pts.length; i++) {
+            segRot.push(Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x) + Math.PI / 2);
+        }
         this.tweens.add({
             targets : state,
             d       : total,
@@ -1349,7 +1552,9 @@ export class GameScene extends Phaser.Scene {
                 const t = Phaser.Math.Clamp((d - cum[seg - 1]) / segLen, 0, 1);
                 ant.x = a.x + (b.x - a.x) * t;
                 ant.y = a.y + (b.y - a.y) * t;
-                ant.rotation = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2;
+                // Snap directo al ángulo del tramo: N/S/E/W en ortogonales,
+                // diagonal solo cuando el tramo realmente lo es.
+                ant.rotation = segRot[seg - 1];
                 // Ciclo de marcha acumulado a lo largo de todo el recorrido
                 this._animateWalk(ant, (ant.walkDist ?? 0) + d);
             },
@@ -1359,7 +1564,8 @@ export class GameScene extends Phaser.Scene {
                 ant.x = last.x;
                 ant.y = last.y;
                 ant.walkDist = (ant.walkDist ?? 0) + total;   // continuidad de fase entre fases
-                this._resetWalk(ant);
+                // Solo reiniciar la marcha si la siguiente fase no comienza de inmediato
+                if (!seamless) this._resetWalk(ant);
                 onComplete();
             },
         });
@@ -1384,7 +1590,9 @@ export class GameScene extends Phaser.Scene {
         // box.ready se activa al terminar la animación de salto al slot
         if (!box || !box.ready || box.count <= 0) return false;
 
-        const path = this.findPath(box.colorId, i);
+        // Camino más corto en celdas desde cualquier borde (BFS puro, sin ponderar
+        // el perímetro): la hormiga va de la caja al borde y entra por donde menos camina.
+        const path = this.findPath(box.colorId);
         if (!path || path.length < 2) {
             console.log(`[slot ${i}] color=${box.colorId} count=${box.count} → sin camino accesible`);
             return false;
@@ -1434,33 +1642,23 @@ export class GameScene extends Phaser.Scene {
         const ant = this.makeAntSprite(slotCx, antStartY, box.colorId);
         this.antsInFlight++;
 
-        // ── FASE 3+4: salida ÓPTIMA del tablero + perímetro → agujero ─────────
-        // En vez de deshacer el camino de entrada, se recalcula desde la celda donde
-        // está la hormiga la salida (por celdas vacías) que minimiza el recorrido total
-        // hasta el agujero: celdas × CELL + perímetro desde esa salida.
+        // ── FASE 1: slot → perimetro del tablero → punto de entrada ──────────
+        // ── FASE 2: BFS entrada → cubo (tramos rectos fusionados) ────────────
+        const toEntry  = this.perimeterToEntry(slotCx, antStartY, entry.x, entry.y, edge);
+        // boardPath se calcula AQUÍ (antes de doBfsReturn) para que el regreso pueda
+        // usar exactamente el mismo camino invertido y evitar diagonales distintas
+        // si el tablero cambia entre la ida y la vuelta.
+        const boardPath = mergeOrthToDiag(mergeCollinear(walkPixels), this.board);
+
+        // ── FASE 3+4: deshacer el camino de entrada + perímetro → agujero ───────
+        // La hormiga regresa por el MISMO camino diagonal por el que entró al dibujo
+        // (boardPath invertido) y sale por el mismo punto del borde.
         const doBfsReturn = () => {
-            const standCell = path.length >= 2 ? path[path.length - 2] : path[0];
-            const inside    = standCell.r >= 0 && standCell.r < BROWS &&
-                              standCell.c >= 0 && standCell.c < BCOLS;
-            let retPixels = [];
-            let retEntry  = entry;
-            let retEdge   = edge;
-            if (inside) {
-                const exitPath = this._bestPathToEdge(standCell.r, standCell.c, (er, ec, eg) => {
-                    const e = cellPx(er, ec);
-                    return this._polyLen(e.x, e.y, this.perimeterToHole(e.x, e.y, holeX, holeY, eg));
-                });
-                if (exitPath && exitPath.length >= 2) {
-                    const exitCell = exitPath[exitPath.length - 1];
-                    retPixels = exitPath.map(({ r, c }) => cellPx(r, c));
-                    retEntry  = cellPx(exitCell.r, exitCell.c);
-                    retEdge   = this.getEntryEdge(exitCell.r, exitCell.c);
-                } else {
-                    retPixels = [...walkPixels].reverse();   // respaldo: deshacer la entrada
-                }
-            }
-            // Diagonales: fusionar tramos ortogonales en L → hipotenusa directa
-            const returnPath = mergeOrthToDiag(mergeCollinear(retPixels), this.board);
+            const returnPath = [...boardPath].reverse();   // camino de ida invertido exacto
+            const retEntry   = entry;
+            const retEdge    = edge;
+            // seamless=true: la marcha no se reinicia entre la fase de retorno BFS
+            // y la fase de perímetro hacia el agujero → animación continua.
             this.animateWaypoints(ant, returnPath, MS_PER_PX, () => {
                 // Salió del tablero → Fase 4: caminar por perimetro al agujero
                 const toHoleWps = this.perimeterToHole(retEntry.x, retEntry.y, holeX, holeY, retEdge);
@@ -1481,9 +1679,11 @@ export class GameScene extends Phaser.Scene {
                     y: lastWp.y - (ddy / dlen) * JUMP_DIST,
                 };
 
+                // seamless=true: la marcha continúa sin pausa hasta el salto final
                 this.animateWaypoints(ant, toHoleWps, MS_PER_PX, () => {
                     if (!ant.active) return;
                     console.log(`[ant slot ${slotIdx}] salta al agujero, count=${box.count}`);
+
 
                     // ── Salto con impulso: parábola continua a la MISMA velocidad horizontal
                     // (sin pausa). La altura sigue sin(π·t); al descender encoge hasta desaparecer.
@@ -1530,19 +1730,17 @@ export class GameScene extends Phaser.Scene {
                             this.checkLose();
                         },
                     });
-                });
-            });
+                }, true);   // seamless: no reiniciar marcha antes del salto
+            }, true);       // seamless: retorno BFS → perímetro al agujero sin pausa
         };
 
-        // ── FASE 1: slot → perimetro del tablero → punto de entrada ──────────
-        // ── FASE 2: BFS entrada → cubo (tramos rectos fusionados) ────────────
-        const toEntry  = this.perimeterToEntry(slotCx, antStartY, entry.x, entry.y, edge);
-        const boardPath = mergeOrthToDiag(mergeCollinear(walkPixels), this.board);
+        // seamless=true: la marcha no se reinicia entre la fase de acercamiento (slot→borde)
+        // y la fase de camino BFS (borde→cubo) → la animación de las patas es continua.
         this.animateWaypoints(ant, toEntry, MS_PER_PX, () => {
             this.animateWaypoints(ant, boardPath, MS_PER_PX, () => {
                 this.onAntArrived(slotIdx, box, path, ant, doBfsReturn);
             });
-        });
+        }, true);
     }
 
     onAntArrived(slotIdx, box, path, ant, doReturn) {
@@ -1573,6 +1771,9 @@ export class GameScene extends Phaser.Scene {
             this.time.delayedCall(80, doReturn);
             return;
         }
+
+        // ── Sonido al despegar el cubo del tablero ──
+        this._playPickupSound();
 
         // ── Animación: hormiga levanta el cubo en sus mandíbulas (diagonal) ──
         // cs ajustado para que el rombo (diagonal = cs·√2) iguale el tamaño visual de CELL
@@ -1990,9 +2191,9 @@ export class GameScene extends Phaser.Scene {
             return;
         }
         if (!ant.legsA || !ant.legsB || !ant.bodyGfx) return;
-        // Marcha sencilla y natural: ~4 contoneos/s (≈15 frames por ciclo a 60 FPS)
-        // y 2 zancadas de patas por contoneo (~8 pasos/s), amplitudes moderadas.
-        const STRIDE = 40;
+        // Marcha más viva: STRIDE=30 px/ciclo → ~5 ciclos/s a 154 px/s.
+        // Amplitudes aumentadas para que el movimiento sea más perceptible.
+        const STRIDE = 30;
         const ph  = (dist / STRIDE) * Math.PI * 2;      // fase del contoneo (cuerpo)
         const s1  = Math.sin(ph);
         const phL = ph * 2;                              // patas: doble frecuencia
@@ -2000,13 +2201,13 @@ export class GameScene extends Phaser.Scene {
         const cL  = Math.cos(phL);
         const bob = -Math.abs(cL) * 0.5;                 // rebote con cada apoyo
 
-        // Trípodes alternos en contrafase
-        const sw = sL * 0.38;
+        // Trípodes alternos en contrafase — amplitud aumentada para mejor visibilidad
+        const sw = sL * 0.44;
         ant.legsA.rotation = sw;
         ant.legsB.rotation = -sw;
 
-        // Tórax: balanceo lateral suave + rebote
-        ant.bodyGfx.rotation = s1 * 0.05;
+        // Tórax: balanceo lateral + rebote — ligeramente más pronunciado
+        ant.bodyGfx.rotation = s1 * 0.07;
         ant.bodyGfx.y        = bob;
 
         // Cola: contoneo moderado con leve retardo respecto al tórax
@@ -2025,6 +2226,31 @@ export class GameScene extends Phaser.Scene {
             ant.shadowGfx.setScale(k, k);
             ant.shadowGfx.alpha = 0.9 + bob * 0.2;
         }
+    }
+
+    // Genera un "pop" corto con Web Audio al momento de despegar un cubo del tablero.
+    // Usa el AudioContext de Phaser para no crear uno propio.
+    // No hace nada si el contexto no está disponible o está suspendido.
+    _playPickupSound() {
+        try {
+            const ctx = this.sound?.context;
+            if (!ctx || ctx.state === 'suspended') return;
+            const now  = ctx.currentTime;
+            const osc  = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            // Sweep rápido hacia abajo: "pop" tipo cubo de madera despegándose
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(85, now + 0.09);
+            // Envolvente: ataque 4 ms + decay exponencial 110 ms
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.28, now + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+            osc.start(now);
+            osc.stop(now + 0.12);
+        } catch { /* silencio si falla */ }
     }
 
     _resetWalk(ant) {
@@ -2128,7 +2354,7 @@ export class GameScene extends Phaser.Scene {
 
         // Pop flash
         const px  = BOARD_X + c * CELL + CELL / 2;
-        const py  = BOARD_Y + r * CELL + CELL / 2;
+        const py  = BOARD_Y + r * ROW_STEP + CELL / 2;
         const clr = activeCubeColors[this.board[r][c]];
         const fl  = this.add.rectangle(px, py, CELL - 1, CELL - 1, clr).setDepth(12);
         this.tweens.add({
@@ -2147,77 +2373,8 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        // Ola gelatinosa en cubos vecinos (antes de borrarlo para leer sus colores)
-        this._jellyNeighbors(r, c);
-
         this.board[r][c] = 0;
         this.redrawBoard();
-    }
-
-    // ── Efecto gelatina: ola radial en los cubos que rodean al cubo eliminado ──
-    // Crea contenedores temporales sobre los vecinos (radio MAX_D celdas), cada uno
-    // con una copia del cubo + destello de brillo 3D en la cara superior.
-    // La animación es squish+stretch retardado por distancia (efecto de ola).
-    _jellyNeighbors(r, c) {
-        const MAX_D = 4;
-        for (let dr = -MAX_D; dr <= MAX_D; dr++) {
-            for (let dc = -MAX_D; dc <= MAX_D; dc++) {
-                if (dr === 0 && dc === 0) continue;
-                const nr = r + dr, nc = c + dc;
-                if (nr < 0 || nr >= BROWS || nc < 0 || nc >= BCOLS) continue;
-                const cid = this.board[nr][nc];
-                if (!cid) continue;
-
-                const dist = Math.abs(dr) + Math.abs(dc);
-                const amp  = Math.max(0.03, 0.22 - dist * 0.042);  // amplitud decrece con distancia
-                const delay = dist * 36;                              // retraso = ola radial
-
-                // Contenedor centrado en la celda vecina
-                const cx = BOARD_X + nc * CELL + CELL / 2;
-                const cy = BOARD_Y + nr * CELL + CELL / 2;
-                const cont = this.add.container(cx, cy).setDepth(11);
-
-                // Dibuja una copia del cubo con origen en el centro del container
-                const g = this.add.graphics();
-                this.drawCube(g, -CELL / 2, -CELL / 2, cid);
-
-                // Destello de brillo en la cara superior (cara 3D iluminada)
-                const hl = this.add.graphics();
-                const rad = CELL >= 10 ? 3 : 2;
-                hl.fillStyle(0xFFFFFF, 0.65);
-                hl.fillRoundedRect(-CELL / 2 + 1, -CELL / 2 + 1, CELL - 2, Math.max(2, CELL * 0.38), rad);
-
-                cont.add([g, hl]);
-
-                // Squish vertical + stretch horizontal (como gelatina al recibir una onda)
-                this.tweens.add({
-                    targets: cont,
-                    delay,
-                    scaleX: 1 + amp * 0.65,
-                    scaleY: 1 - amp * 0.42,
-                    duration: 85,
-                    ease: 'Quad.easeOut',
-                    yoyo: true,
-                    onComplete: () => {
-                        // Rebote secundario más suave
-                        this.tweens.add({
-                            targets: cont,
-                            scaleX: 1 + amp * 0.28,
-                            scaleY: 1 - amp * 0.18,
-                            duration: 60,
-                            ease: 'Quad.easeOut',
-                            yoyo: true,
-                            onComplete: () => cont.destroy(),
-                        });
-                    },
-                });
-
-                // El brillo se desvanece rápidamente durante el primer pico
-                this.tweens.add({
-                    targets: hl, delay, alpha: 0, duration: 190, ease: 'Quad.easeIn',
-                });
-            }
-        }
     }
 
     // ── Slot cleanup ───────────────────────────────────────────────────────────
@@ -2264,7 +2421,7 @@ export class GameScene extends Phaser.Scene {
         const isFast   = this.speedBoost || allFull;
         // Derivar antSpeed a partir de CELL × msPerPx para que la velocidad en
         // px/s sea siempre igual dentro del tablero y en el perimetro.
-        this.msPerPx   = isFast ? 3.0  : 6.0;
+        this.msPerPx   = isFast ? 2.75 : 5.5;
         this.antSpeed  = CELL * this.msPerPx;
     }
 
@@ -2274,6 +2431,8 @@ export class GameScene extends Phaser.Scene {
     // el estado de lost (puede haber sido marcado prematuramente por checkLose).
     checkWin() {
         if (this.won) return;
+        // Esperar a que la ÚLTIMA hormiga entre al agujero: el mensaje aparece 1 s después
+        if (this.antsInFlight > 0) return;
         for (let r = 0; r < BROWS; r++) {
             for (let c = 0; c < BCOLS; c++) {
                 if (this.board[r][c] !== 0) return; // aún quedan cubos
@@ -2396,6 +2555,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     showWinScreen() {
+        // Desbloquear el siguiente nivel en el perfil del jugador
+        unlockLevel(this.currentLevel + 1);
+
         // Darken overlay
         const ov = this.add.graphics().setDepth(50);
         ov.fillStyle(0x000000, 0.55);
